@@ -164,10 +164,17 @@ export function createReady() {
 }
 
 export function remap(obj) {
+  if (Array.isArray(obj)) {
+    return obj.reduce((res, item) => {
+      res[item] = camelcase(item);
+      return res;
+    }, {});
+  }
+
   const keys = Object.keys(obj);
   const res = {};
   keys.forEach((key) => {
-    res[obj[key]] = key;
+    res[obj[key]] = camelcase(key);
   });
   return res;
 }
