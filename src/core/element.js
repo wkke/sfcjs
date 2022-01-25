@@ -199,7 +199,7 @@ export async function privilege(tag, options, source) {
 
 ;(function () {
   let style = document.createElement('style');
-  style.textContent = 't-sfc[pending-slot=0] { display: none }';
+  style.textContent = 't-sfc:not([pending-slot=1]) { display: none }';
   document.head.appendChild(style);
 
   const run = () => {
