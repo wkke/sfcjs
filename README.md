@@ -366,15 +366,22 @@ SFCJS.privilege(
 
 组件接收外部组件传入的 props，即通过 `:` 开头的标签属性进行传递，通过 `sfc:props` 接收传入的 props。
 
-```js
-import { prop1, prop2 } from 'sfc:props';
+```html
+<script>
+  import props from 'sfc:props';
+</script>
+<div id="{{props.id}}">{{props.content}}</div>
 ```
+
+*此处注意，不可以将属性从 `props` 上结构出来后使用，而必须通过 `.` 操作符从 `props` 上读取属性。*
 
 当前这个组件在被其他组件使用时，如下传递：
 
 ```html
-<some-component :prop1="{ some: 1 }" :prop2="'some string'" class="some"></some-component>
+<some-component :id="100" :content="'some string'" class="some"></some-component>
 ```
+
+props 传递的是真实值，例如上面的 `100` 是数字 100 而非字符串 '100'，如果需要使用变量，不应该放在 `{{}}` 内部，具体可以阅读上面的语法部分。
 
 *组件只接收 props，无法读取组件的 attrs，例如上面的 `class` 这个属性，在组件内部读取不到，这个属性将被作为 `<some-component>` 这个 html 标签的属性生效。*
 
@@ -396,7 +403,7 @@ function handleClick() {
 <some-component @triggered="handleTrigger(event)"></some-component>
 ```
 
-和 vue2 很像，你必须使用 event 这个关键字来接住组件内部 emit 的第二个参数。但和 vue2 不同的是，你不可以只传一个 `handleTrigger` 就结束了，你必须在 @triggered 中传递完整的函数表达形式。
+和 vue2 很像，你必须使用 event 这个关键字来接住组件内部 emit 的第二个参数，例如上面代码中 `handleTrigger(event)` 中的 `event` 的值其实是 `111`。但和 vue2 不同的是，你不可以只传一个 `handleTrigger` 就结束了，你必须在 @triggered 中传递完整的函数表达形式。
 
 ## AOT
 
@@ -432,17 +439,17 @@ module.exports = function(content) {
 引入经过编译后的组件，将直接把该组件及其依赖打包进来，完成组件的注册。但是需要注意，如果要在界面中展示该组件，还是要使用 `t-sfc` 进行组件展示才行。
 
 ```html
-<!-- 展示组件界面，这里的 src 要与上面提供的 entryUrl 一致，建议使用下面这种绝对路径 -->
-<t-sfc src="/index.htm"></t-sfc>
-
 <!-- 如果 importLib 为 false，你需要引入下面这一行 -->
 <script src="https://unpkg.com/sfcjs"></script>
 
 <!-- 引入经过编译后的代码包 -->
 <script src="bundle.js" type="module"></script>
+
+<!-- 展示组件界面，这里的 src 要与上面提供的 entryUrl 一致，建议使用下面这种绝对路径 -->
+<t-sfc src="/index.htm"></t-sfc>
 ```
 
-也就是说，编译工具把我们原有的 .htm 文件编译为 js 代码，和其他的代码可以混在一起。但是最终要使用对应的组件时，需要使用 `t-sfc` 来进行组件的使用。
+也就是说，编译工具把我们原有的 .htm 文件编译为 js 代码，在你的工程项目中可以和其他的代码打包到一起。但是最终要使用对应的组件时，需要使用 `t-sfc` 来进行组件的使用。
 
 ## 使用场景
 
