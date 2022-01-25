@@ -1,0 +1,213 @@
+import {
+  parseHtmlToAst,
+  // traverseAst as traverseHtmlAst,
+} from 'abs-html';
+import { each, camelcase, clearHtml, resolveUrl } from '../utils';
+import { tokenize } from './js-parser';
+
+export function parseHtml(sourceCode, components, givenVars, source) {
+  const html = clearHtml(sourceCode.trim());
+  const htmlAst = parseHtmlToAst(html);
+
+  const consumeVars = (code, vars = {}) => {
+    const tokens = tokenize(code);
+    const localVars = { ...givenVars, ...vars };
+    each(tokens, (item, i) => {
+      if (localVars[item] && tokens[i - 1] !== '.') {
+        tokens[i] = `_sfc.consume(${item})`;
+      }
+    });
+    const res = tokens.join('');
+    return res;
+  };
+
+  let code = '() => {return ';
+
+  // DROP 通过clearHtml解决了
+  // traverseHtmlAst(htmlAst, {
+  //   '[[String]]': {
+  //     enter(node, parent, index) {
+  //       if (!parent) {
+  //         return
+  //       }
+  //       // 去掉所有换行逻辑
+  //       if (/^\n[\s\n]*$/.test(node)) {
+  //         parent.splice(index, 1)
+  //       }
+  //       else if (/^\n.*?\n$/.test(node)) {
+  //         const str = node.substring(1, node.length - 1)
+  //         parent[index] = str
+  //       }
+  //     },
+  //   },
+  // })
+
+  const interpolate = (str) => {
+    const res = str.replace(/{{(.*?)}}/g, (_, $1) => `\${${consumeVars($1)}}`);
+    return `\`${res}\``;
+  };
+
+  const create = (obj, type) => {
+    const attrs = [];
+    const props = [];
+    const events = [];
+    const directives = [];
+    const args = [];
+    each(obj, (value, key) => {
+      const createValue = () => {
+        if (value && typeof value === 'object') {
+          return create(value);
+        }
+
+        if (typeof value === 'string') {
+          return interpolate(value);
+        }
+
+        return value;
+      };
+
+      if (key === 'src' || key === 'href') {
+        const url = resolveUrl(source, value);
+        attrs.push([key, `'${url}'`]);
+      } else if (key.indexOf(':') === 0) {
+        const res = consumeVars(value);
+        const realKey = key.substr(1);
+        const k = camelcase(realKey);
+        props.push([k, res]);
+      } else if (key.indexOf('@') === 0) {
+        const k = key.substr(1);
+        events.push([k, `event => {${value}}`]);
+      } else if (/^\(.*?\)$/.test(key)) {
+        const k = key.substring(1, key.length - 1);
+        if (k === 'if') {
+          directives.push(['visible', value]);
+          args.push(null);
+        } else if (k === 'repeat') {
+          const matched = value.match(/^(.+?)(,(.+?))?in (.+?)$/);
+          if (!matched) {
+            throw new Error('repeat 语法不正确 repeat="item,index in items"');
+          }
+
+          const [, _item, , _index, _items] = matched;
+          const [item, index, items] = [_item.trim(), _index ? _index.trim() : null, _items.trim()];
+          directives.push(['repeat', `{items:${items},item:'${item}'${index ? `,index:'${index}'` : ''}}`, true]);
+          args.push(...[item, index].filter(item => !!item));
+        } else if (k === 'key') {
+          directives.push(['key', value]);
+        } else if (k === 'class') {
+          directives.push(['class', value]);
+        } else if (k === 'style') {
+          directives.push(['style', value]);
+        } else if (k === 'await') {
+          const matched = value.match(/^(\w+)(\.status\((\w+)\))?(\.then\((\w+)\))?(\.catch\((\w+)\))?$/);
+          if (!matched) {
+            throw new Error('await 语法不正确 await="promise.status(status).then(data).catch(error)"');
+          }
+
+          const [, _promise, , _status, , _data, , _error] = matched;
+          const [promise, status, data, error] = [_promise, _status, _data, _error]
+            .map(item => (item ? item.trim() : null));
+          directives.push(['await', `{promise:${promise}${data ? `,data:'${data}'` : ''}${error ? `,error:'${error}'` : ''}${status ? `,status:'${status}'` : ''}}`, true]);
+          args.push(...[data, error, status].filter(item => !!item));
+        } else if (k === 'bind') {
+          const allows = ['input', 'textarea', 'select'];
+          if (!allows.includes(type)) {
+            throw new Error(`bind 不能在 ${type} 上使用，只限于 ${allows.join(',')}`);
+          }
+
+          directives.push(['bind', `[_sfc.consume(${value}), v => _sfc.update(${value}, () => v)]`, true, true]);
+        }
+      } else {
+        const v = createValue();
+        attrs.push([key, v]);
+      }
+    });
+
+    const finalArgs = args.filter(item => !!item).join(',');
+    const finalArgsStr = finalArgs ? `{${finalArgs}}` : '';
+    const finalArgsMap = args.filter(item => !!item).reduce((map, curr) => {
+      // eslint-disable-next-line no-param-reassign
+      map[curr] = 1;
+      return map;
+    }, {});
+
+    const data = [
+      ['props', props],
+      ['attrs', attrs],
+      ['events', events],
+    ]
+      .map((item) => {
+        const [name, info] = item;
+        if (!info.length) {
+          return null;
+        }
+        let res = `${name}:(${finalArgsStr}) => ({`;
+        res += info.map(([key, value]) => `${key}:${value}`).join(',');
+        res += '})';
+        return res;
+      })
+      .filter(item => !!item)
+      .concat(directives.map((item) => {
+        const [name, value, nonArgs, nonVar] = item;
+        const exp = nonVar ? value : consumeVars(value, finalArgsMap);
+        return `${name}:(${nonArgs ? '' : finalArgsStr}) => ${value[0] === '{' ? `(${exp})` : exp}`;
+      }))
+      .filter(item => !!item)
+      .join(',');
+
+    return [data ? `{${data}}` : '', args];
+  };
+
+  const build = (astNode) => {
+    const [type, props, ...children] = astNode;
+
+    if (!/^[a-zA-Z]/.test(type)) {
+      return null;
+    }
+
+    let data = '';
+    let args = [];
+    const subs = [];
+
+    if (props) {
+      [data, args] = create(props, type);
+    }
+
+    const subArgs = args.filter(item => !!item);
+    const subArgsStr = subArgs.length ? `{${subArgs.join(',')}}` : '';
+
+    if (children.length && children.some(item => !!item)) {
+      each(children, (child) => {
+        if (typeof child === 'string') {
+          const text = interpolate(child);
+          const node = `_sfc.t(() => ${text})`;
+          subs.push(node);
+        } else {
+          const node = build(child);
+          if (node !== null) {
+            subs.push(node);
+          }
+        }
+      });
+    }
+
+    const componentName = camelcase(type, true);
+    const component = components && components[componentName] ? componentName : `'${type}'`;
+
+    const inter = (content) => {
+      if (subArgsStr) {
+        return consumeVars(content, subArgs);
+      }
+      return content;
+    };
+    const inner = subs.length ? `(${subArgsStr}) =>${inter(`[${subs.join(',')}]`)}` : null;
+    const params = [component, data, inner].filter(item => !!item);
+    const code = `_sfc.h(${params.join(',')})`;
+    return code;
+  };
+
+  code += build(htmlAst);
+  code += ';}';
+
+  return code;
+}

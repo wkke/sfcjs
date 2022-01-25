@@ -1,0 +1,47 @@
+<script>
+  import Some2 from 'sfc:./some2.htm';
+  import { each } from '../src/utils.js';
+  import emit from 'sfc:emit';
+
+  const props = await import('sfc:props');
+
+
+  let some = props.someAttr;
+  let title = props.title;
+  let name = 'aaa';
+  let count = 0;
+
+  function plus() {
+    count ++;
+  }
+
+  let isShowSome2 = false;
+
+  function toggleSome2() {
+    isShowSome2 = !isShowSome2;
+  }
+</script>
+
+<style>
+  h3 { font-size: 60px; }
+</style>
+
+<div>
+  <h3>titie: {{title}}</h3>
+  <div>name: {{name}}</div>
+  <div>some: {{some}}</div>
+  <slot>
+    <span>default content: {{count}}</span>
+    <button @click="plus()">plus</button>
+  </slot>
+  <div>content after slot</div>
+
+  <div>
+    <button @click="emit('pop', 111)">trigger</button>
+  </div>
+
+  <div>
+    <button @click="toggleSome2()">Toggle Some2</button>
+    <some-2 (if)="isShowSome2"></some-2>
+  </div>
+</div>

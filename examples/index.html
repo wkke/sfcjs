@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+
+<style>
+  span {
+    color: rgb(0, 64, 202);
+  }
+</style>
+
+<script src="../dist/index.js"></script>
+
+<template id="t-button">
+  <script>
+    const props = await import('sfc:props');
+  </script>
+  <style>
+    button {
+      border: 0;
+      color: #fff;
+      border-radius: 3px;
+      padding: 5px 15px;
+    }
+    button.success {
+      background: green;
+    }
+    button.error {
+      background: red;
+    }
+  </style>
+  <button type="{{props.type}}" class="{{props.theme}}">动作：<slot></slot></button>
+</template>
+<script>
+  // 通过privilege实现高级的组件注册
+  SFCJS.privilege(
+    't-button',
+    {
+      props: {
+        type: 'type',
+        theme: 'theme',
+      },
+      pendingSlot: false,
+    },
+    document.querySelector('#t-button'),
+  );
+</script>
+
+<t-sfc src="./app.htm" data-dog="{ name: 'tydi' }">
+  <span>Loading...</span>
+</t-sfc>
+
+<t-button type="button" theme="success">按钮</t-button>
+
+<script>
+  document.querySelector('t-sfc').addEventListener('grow', e => console.log(e.detail));
+  document.querySelector('t-button').addEventListener('mounted', function() {
+    setTimeout(() => {
+      this.setAttribute('theme', 'error');
+    }, 3000);
+  });
+</script>
