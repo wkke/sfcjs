@@ -133,14 +133,14 @@
 
 - src: 组件相对于当前页面的相对路径或绝对路径（如果你的应用是 SPA，推荐使用绝对路径）
 - passive: 是否需要**禁用**立即渲染视图，这样可以方便有些情况下，你不想马上渲染组件效果。在某个动作之后需要手动调用 `document.querySelector('t-sfc#app').mount()` 来渲染视图
-- pending-slot: 是否使用传入的 slot 作为组件加载完成之前的预览信息，默认为 `1`，你可以传入 `pending-slot="0"` 来进行关闭
+- pending-slot: 是否使用传入的 slot 作为组件加载完成之前的预览信息，默认为 `0`，你可以传入 `pending-slot="1"` 来开启，开启后组件加载期间 slot 将被展示，可作为预加载提示界面
 - 以 `:` 或 `data-` 开头的属性将作为组件的 props 进行传入，这些属性的值必须是 JSON 字符串，内部才能正常解析。提供 `data-` 的选项是为了避免在 vue, react 中无法使用 `:` 开头的属性。
 - 其他不是 `:` 或 `data-` 开头的属性将和组件无关，是 custom element 的属性。
 
 `t-sfc` 元素可以通过 `addEventListener` 监听组件内抛出的事件，监听得到的是一个 CustomEvent，可通过 `event.detail` 属性读取组件内抛出的值。
 
 ```html
-<t-sfc src="..." pending-slot="0" passive="1" :prop1="{ name: 1 }" data-prop2="true" class="some">这段内容不会在一开始被展示出来</t-sfc>
+<t-sfc src="..." pending-slot="1" passive="1" :prop1="{ name: 1 }" data-prop2="true" class="some">这段内容会在一开始被展示出来，Loading...</t-sfc>
 
 <script>
   const some = document.querySelector('.some');

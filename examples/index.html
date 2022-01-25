@@ -37,13 +37,12 @@
         type: 'type',
         theme: 'theme',
       },
-      pendingSlot: false,
     },
     document.querySelector('#t-button'),
   );
 </script>
 
-<t-sfc src="./app.htm" data-dog="{ name: 'tydi' }">
+<t-sfc src="./app.htm" data-dog="{ name: 'tydi' }" pending-slot="1">
   <span>Loading...</span>
 </t-sfc>
 

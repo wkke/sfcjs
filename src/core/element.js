@@ -51,7 +51,7 @@ class SFC_Element extends HTMLElement {
     // 如果不做这个操作，那么当<t-sfc>挂载之后，就会立即清空内部的内容
     // 这个能力仅对传入了src的有效，传入src的是真正用于入口的组件，没有传的是内部使用，不提供这个功能
     // 只有当调用mount之后，才会消失，如果开发者自己手动调用过程中想提前清空，也可以调用clear
-    const pending = 'pendingSlot' in options ? options.pendingSlot : (this.getAttribute('pending-slot') || 1);
+    const pending = 'pendingSlot' in options ? options.pendingSlot : this.getAttribute('pending-slot');
     const isPending = +pending;
     this.shadowRoot.innerHTML = isPending ? '<slot></slot>' : '';
 
