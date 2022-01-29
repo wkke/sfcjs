@@ -70,8 +70,8 @@ export async function register(src, text) {
     throw new Error(`${absUrl}已经被注册过了`);
   }
 
-  const output = await Context.compileComponentCode(absUrl, text);
-  await insertBlob(absUrl, output);
+  const chunk = await Context.compileComponent(absUrl, text);
+  await insertBlob(absUrl, chunk);
 }
 
 // ---------------------------------------------
@@ -1157,8 +1157,8 @@ async function loadDepComponents(deps) {
   if (!components.length) {
     return;
   }
-  await Promise.all(components.map(url => Context.loadComponentCode(url)
-    .then(({ code, refs }) => insertBlob(url, { code, refs }))));
+  await Promise.all(components.map(url => Context.loadComponent(url)
+    .then(chunk => insertBlob(url, chunk))));
 }
 
 export async function insertBlob(absUrl, { code, refs }) {

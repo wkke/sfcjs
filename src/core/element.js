@@ -72,8 +72,8 @@ class SFC_Element extends HTMLElement {
   }
 
   async setup() {
-    const output = await Context.loadComponentCode(this.absUrl);
-    await insertBlob(this.absUrl, output);
+    const chunk = await Context.loadComponent(this.absUrl);
+    await insertBlob(this.absUrl, chunk);
     this.dispatchEvent(new Event('loaded'));
   }
 

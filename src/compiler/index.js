@@ -53,32 +53,28 @@ export function genComponent({ imports = [], deps = [], jsCode, cssCode, htmlCod
   return res;
 }
 
-export function compileComponent(text, source, options) {
-  const ast = parseComponent(text, source, options);
-  const code = genComponent(ast, source, options);
-  return code;
-}
-
-export async function loadRefs(ast, source) {
+export async function loadRefs(refs, source) {
   const promises = [];
-  const { refs: refSrcs } = ast;
 
-  if (refSrcs && refSrcs.length) {
-    promises.push(...refSrcs.map(async ({ type, url, src }) => {
+  if (refs && refs.length) {
+    promises.push(...refs.map(async ({ type, url, src }) => {
       const text = await fetch(url).then(res => res.text());
       const code = type === 'text/css' ? replaceCssUrl(text, source) : text;
       return { code, type, url, src };
     }));
   }
 
-  const refs = await Promise.all(promises);
-  return refs;
+  return await Promise.all(promises);
 }
 
-export async function loadComponent(source, options) {
-  const text = await fetch(source).then(res => res.text());
+export async function compileComponent(source, text, options) {
   const ast = parseComponent(text, source, options);
   const refs = await loadRefs(ast, source);
   const code = genComponent(ast, source, options);
   return { code, refs };
+}
+
+export async function loadComponent(source, options) {
+  const text = await fetch(source).then(res => res.text());
+  return await compileComponent(source, text, options);
 }

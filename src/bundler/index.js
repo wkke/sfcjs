@@ -1,9 +1,10 @@
 import { parseComponent, genComponent } from '../compiler';
+import { replaceCssUrl } from '../compiler/css-parser';
 import { name } from '../../package.json';
 import path from 'path';
 import fs from 'fs';
 import { resolveUrl } from '../utils';
-import { getStringHash, num10to62 } from 'ts-fns';
+import { createRandomString, getStringHash, num10to62, createSafeExp } from 'ts-fns';
 
 export function bundle(file, options = {}) {
   const contents = [];
@@ -69,14 +70,6 @@ export function bundle(file, options = {}) {
     const asts = parseComponent(fileContent, url, compileOptions);
     const { components = {}, imports = [], refs, ...info } = asts;
 
-    if (refs && refs.length) {
-      refs.forEach(({ code, url, type }) => {
-        if (type === 'text/css') {
-          stylesSet[url] = code;
-        }
-      });
-    }
-
     const importSet = {};
     imports.forEach(([importDeclare, importSrc]) => {
       const src = resolveImportFile(importSrc);
@@ -128,7 +121,28 @@ export function bundle(file, options = {}) {
 
     // 被忽略的文件不被写入最终的bundle，但是它所引入的子组件还需要继续编译
     if (!isIgnored(file)) {
-      const fileCode = genComponent(info, url, compileOptions);
+      let fileCode = genComponent(info, url, compileOptions);
+
+      if (refs && refs.length) {
+        const relativeTo = url;
+        refs.forEach(({ url, type, src }) => {
+          if (type === 'text/css' && !stylesSet[url]) {
+            let id = '';
+            // TODO 假如 url 对应 file 和之前不一致怎么办？虽然是不应该发生的
+            if (!stylesSet[url]) {
+              const file = resolveImportFile(src);
+              const text = fs.readFileSync(file).toString();
+              const css = replaceCssUrl(text, relativeTo);
+              id = createRandomString(8);
+              stylesSet[url] = { id, css, type };
+            } else {
+              id = stylesSet[url].id;
+            }
+            fileCode = fileCode.replace(new RegExp(createSafeExp(`sfc:${src}`), 'gmi'), `CSS.${id}`);
+          }
+        });
+      }
+
       const newFileContent = `/* ${url} */\n;(function(${scopeVars.join(',')}) {\n${fileCode}\n} (${newVars.join(',')}));`;
       contents.push(newFileContent);
     } else {
@@ -152,9 +166,30 @@ export function bundle(file, options = {}) {
     importLines.push(`import { ${declareItems.join(', ')} } from '${src}';`);
   });
 
+  const cssFiles = Object.keys(stylesSet).map((url) => {
+    const { id, css, type } = stylesSet[url];
+    const fileText = `CSS.${id} = createBlobUrl(${JSON.stringify(css)}, '${type}');`;
+    return fileText;
+  });
+
+  let cssContent = '';
+  if (cssFiles.length) {
+    cssContent += 'const CSS = {};\n';
+    cssContent += ';(function() {\n';
+    cssContent += `function createBlobUrl(text, type) {
+      const url = window.URL || window.webkitURL;
+      const blob = new Blob([text], { type });
+      const blobURL = url.createObjectURL(blob);
+      return blobURL;
+    }\n`;
+    cssContent += cssFiles.join('\n');
+    cssContent += '\n}());\n';
+  }
+
   return `
     ${importLib ? `import * as SFCJS from '${importLib === true ? name : importLib}';` : ''}
     ${importLines.join('\n')}
+    ${cssContent}
     ${contents.join('\n')}
     ${exportUrl ? `\nexport default '${entryUrl}';\n` : ''}
   `;

@@ -9,21 +9,19 @@ self.addEventListener('message', async (e) => {
   const { type } = data;
   if (type === 'load') {
     const { src, id } = data;
-    const { code, refs } = await loadComponent(src);
+    const chunk = await loadComponent(src);
     postMessage(JSON.stringify({
       type,
       id,
-      code,
-      refs,
+      ...chunk,
     }));
   } else if (type === 'compile') {
     const { src, text, id } = data;
-    const { code, refs } = compileComponent(text, src);
+    const chunk = await compileComponent(src, text);
     postMessage(JSON.stringify({
       type,
       id,
-      code,
-      refs,
+      ...chunk,
     }));
   }
 });

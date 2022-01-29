@@ -7,8 +7,8 @@ import { tokenize } from './js-parser';
 // https://github.com/visionmedia/css-parse/pull/49#issuecomment-30088027
 const commentre = /\/\*[^*]*\*+([^/*][^*]*\*+)*\//g;
 
-export function replaceCssUrl(value, source) {
-  const res = value.replace(/\('(.*?)'\)/gm, '("$1")')
+export function replaceCssUrl(text, source) {
+  const res = text.replace(/\('(.*?)'\)/gm, '("$1")')
     .replace(/url\("?(.*?)"?\)/gm, (_, $1) => `url("${resolveUrl(source, $1)}")`);
   return res;
 }
