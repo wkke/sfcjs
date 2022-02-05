@@ -824,7 +824,10 @@ class Element {
   }
 
   mountStyles(styles, root) {
-    const list = [];
+    const list = [
+      // 忽略顶层的元素
+      ':host, fragment { display: contents }',
+    ];
     const brushes = [];
     const create = (attrs) => {
       let text = '';
