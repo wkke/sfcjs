@@ -1,5 +1,5 @@
-import { resolveUrl, createScriptByBlob, insertScript, each, tryParse, createReady, camelcase, remap } from '../utils';
-import { initComponent, components, updateComponent } from './framework';
+import { resolveUrl, each, tryParse, createReady, camelcase, remap } from '../utils';
+import { initComponent, components, updateComponent, insertBlob } from './framework';
 import { Context } from './context';
 
 const BASE_URL = window.location.href;
@@ -72,10 +72,8 @@ class SFC_Element extends HTMLElement {
   }
 
   async setup() {
-    const code = await Context.loadComponentCode(this.absUrl);
-    const script = createScriptByBlob(code);
-    script.setAttribute('sfc-src', this.absUrl);
-    await insertScript(script);
+    const output = await Context.loadComponentCode(this.absUrl);
+    await insertBlob(this.absUrl, output);
     this.dispatchEvent(new Event('loaded'));
   }
 
@@ -149,10 +147,8 @@ export async function register(src, text) {
     throw new Error(`${absUrl}已经被注册过了`);
   }
 
-  const code = await Context.compileComponentCode(absUrl, text);
-  const script = createScriptByBlob(code);
-  script.setAttribute('sfc-src', absUrl);
-  await insertScript(script);
+  const output = await Context.compileComponentCode(absUrl, text);
+  await insertBlob(absUrl, output);
 }
 
 export async function privilege(tag, options, source) {

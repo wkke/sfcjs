@@ -9,6 +9,7 @@ export function bundle(file, options = {}) {
   const contents = [];
   const importSources = {};
   const compileOptions = {};
+
   // entryUrl 入口的url地址，这是由框架决定的，需要用这个来确定组件的引用
   // absRootPath 由于有些组件直接使用绝对路径 / 开头，因此，我们需要提供 absRootPath 作为所谓 / 的读取位置，一般是项目所在目录
   const {
@@ -54,8 +55,20 @@ export function bundle(file, options = {}) {
     };
     const fileContent = fs.readFileSync(file).toString();
 
+    const isIgnored = file => ignores.length && ignores.some((ignore) => {
+      if (ignore instanceof RegExp && ignore.test(file)) {
+        return true;
+      }
+      if (typeof ignore === 'string' && ignore === file) {
+        return true;
+      }
+      return false;
+    });
+
     const asts = parseComponent(fileContent, url, compileOptions);
-    const { components = {}, imports = [], ...info } = asts;
+    const { components = {}, imports = [], refs, ...info } = asts;
+
+    // TODO refs
 
     const importSet = {};
     imports.forEach(([importDeclare, importSrc]) => {
@@ -107,15 +120,7 @@ export function bundle(file, options = {}) {
     });
 
     // 被忽略的文件不被写入最终的bundle，但是它所引入的子组件还需要继续编译
-    if (!(ignores.length && ignores.some((ignore) => {
-      if (ignore instanceof RegExp && ignore.test(file)) {
-        return true;
-      }
-      if (typeof ignore === 'string' && ignore === file) {
-        return true;
-      }
-      return false;
-    }))) {
+    if (!isIgnored(file)) {
       const fileCode = genComponent(info, url, compileOptions);
       const newFileContent = `/* ${url} */\n;(function(${scopeVars.join(',')}) {\n${fileCode}\n} (${newVars.join(',')}));`;
       contents.push(newFileContent);

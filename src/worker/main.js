@@ -35,12 +35,12 @@ function run(data) {
         return;
       }
 
-      const { code } = res;
+      const { code, refs } = res;
       if (!code) {
         return;
       }
 
-      resolve(code);
+      resolve({ code, refs });
       onComplete();
     };
     worker.addEventListener('message', onSuccess);
@@ -48,7 +48,7 @@ function run(data) {
 }
 
 function loadComponentCode(src) {
-  return run({ type: 'init', src });
+  return run({ type: 'load', src });
 };
 
 function compileComponentCode(src, text) {

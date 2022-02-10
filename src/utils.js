@@ -102,9 +102,9 @@ export function randomString(len = 8) {
 
 export function noop() {}
 
-export function createBlobUrl(contents) {
+export function createBlobUrl(contents, type = 'application/javascript') {
   const url = window.URL || window.webkitURL;
-  const blob = new Blob([contents], { type: 'application/javascript' });
+  const blob = new Blob([contents], { type });
   const blobURL = url.createObjectURL(blob);
   return blobURL;
 }

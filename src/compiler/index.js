@@ -1,4 +1,4 @@
-import { parseCss } from './css-parser';
+import { parseCss, replaceCssUrl } from './css-parser';
 import { parseJs } from './js-parser';
 import { parseHtml } from './html-parser';
 import { resolveUrl } from '../utils';
@@ -21,9 +21,9 @@ export function parseComponent(text, source, options = {}) {
 
   const { imports, deps, code: jsCode, components, vars } = jsSource;
 
-  const cssCode = cssText ? parseCss(cssText, source, vars) : undefined;
+  const { code: cssCode, refs } = cssText ? parseCss(cssText, source, vars) : {};
   const htmlSource = options.prettyHtml ? options.prettyHtml(html) : html;
-  const htmlCode = htmlSource ? parseHtml(htmlSource, components, vars, source) : undefined;
+  const { code: htmlCode } = htmlSource ? parseHtml(htmlSource, components, vars, source) : null;
 
   return {
     imports,
@@ -32,6 +32,7 @@ export function parseComponent(text, source, options = {}) {
     jsCode,
     cssCode,
     htmlCode,
+    refs,
   };
 }
 
@@ -52,10 +53,23 @@ export function genComponent({ imports = [], deps = [], jsCode, cssCode, htmlCod
   return res;
 }
 
-export function compileComponent(text, source, options) {
+export async function compileComponent(text, source, options) {
   const asts = parseComponent(text, source, options);
-  const code = genComponent(asts, source, options);
-  return code;
+  const promises = [
+    Promise.resolve().then(() => genComponent(asts, source, options)),
+  ];
+
+  const { refs: refSrcs } = asts;
+  if (refSrcs && refSrcs.length) {
+    promises.push(...refSrcs.map(async ({ type, url, src }) => {
+      const text = await fetch(url).then(res => res.text());
+      const code = type === 'text/css' ? replaceCssUrl(text, source) : text;
+      return { code, type, url, src };
+    }));
+  }
+
+  const [code, ...refs] = await Promise.all(promises);
+  return { code, refs };
 }
 
 export function loadComponent(source, options) {
