@@ -46,7 +46,7 @@ export function resolveUrl(baseUrl, uri) {
     return uri;
   }
 
-  const isAbs = /^\/[a-z]/.test(baseUrl);
+  const isAbs = baseUrl[0] === '/' && baseUrl[1] !== '/';
   // 必须是 /a/b/c || http://xxx
   if (!isAbs && (!baseUrl || !isAbsUrl(baseUrl))) {
     throw new Error('resolveUrl 中 baseUrl 必须是带协议的 url');
