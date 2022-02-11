@@ -172,22 +172,34 @@ export function bundle(file, options = {}) {
 
   const cssFiles = Object.keys(stylesSet).map((url) => {
     const { id, css, type } = stylesSet[url];
-    const fileText = `CSS.${id} = createBlobUrl(${JSON.stringify(css)}, '${type}');`;
+    // 异步生成，避免一上来就出现一大堆不需要的 blob
+    const text = JSON.stringify(css.replace(/\n/g, '').replace(/[\s\t]+/g, ' '));
+    const fileText = `
+      ;(function() {
+        let css${id} = null;
+        Object.defineProperty(CSS, '${id}', {
+          get() {
+            if (!css${id}) {
+              css${id} = createBlobUrl(${text}, '${type}');
+            }
+            return css${id};
+          },
+        });
+      }());
+    `;
     return fileText;
   });
 
   let cssContent = '';
   if (cssFiles.length) {
-    cssContent += 'const CSS = {};\n';
     cssContent += `function createBlobUrl(text, type) {
       const url = window.URL || window.webkitURL;
       const blob = new Blob([text], { type });
       const blobURL = url.createObjectURL(blob);
       return blobURL;
     }\n`;
-    cssContent += ';(function() {\n';
+    cssContent += 'const CSS = {};\n';
     cssContent += cssFiles.join('\n');
-    cssContent += '\n}());\n';
   }
 
   return `
