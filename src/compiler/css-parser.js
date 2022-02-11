@@ -994,13 +994,15 @@ export function parseCss(sourceCode, source, givenVars) {
     }
 
     if (type === 'import') {
-      if (section.import.indexOf('sfc:') === 0) {
-        const src = section.import.replace('sfc:', '');
+      const importSrc = section.import.substring(1, section.import.length - 1);
+
+      if (importSrc.indexOf('sfc:') === 0) {
+        const src = importSrc.replace('sfc:', '');
         const url = resolveUrl(source, src);
         refs.push({ url, src, type: 'text/css' });
       }
 
-      css.push(`['@import','${section.import}']`);
+      css.push(`['@import','${importSrc}']`);
       return;
     }
 

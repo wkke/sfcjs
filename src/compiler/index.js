@@ -23,7 +23,7 @@ export function parseComponent(text, source, options = {}) {
 
   const { code: cssCode, refs } = cssText ? parseCss(cssText, source, vars) : {};
   const htmlSource = options.prettyHtml ? options.prettyHtml(html) : html;
-  const { code: htmlCode } = htmlSource ? parseHtml(htmlSource, components, vars, source) : null;
+  const { code: htmlCode } = htmlSource ? parseHtml(htmlSource, components, vars, source) : {};
 
   return {
     imports,

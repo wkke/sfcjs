@@ -52,6 +52,10 @@ export function bundle(file, options = {}) {
   function compile(file, url) {
     const resolveImportFile = (src) => {
       const newPath = src.indexOf('/') === 0 ? path.resolve(outputDir, `.${src}`) : path.resolve(path.dirname(file), src);
+      return newPath;
+    };
+    const relativeImportFile = (src) => {
+      const newPath = resolveImportFile(src);
       const relPath = path.relative(outputDir, newPath);
       return relPath;
     };
@@ -72,7 +76,7 @@ export function bundle(file, options = {}) {
 
     const importSet = {};
     imports.forEach(([importDeclare, importSrc]) => {
-      const src = resolveImportFile(importSrc);
+      const src = relativeImportFile(importSrc);
       const declares = [];
       const hash = num10to62(getStringHash(src));
 
@@ -138,7 +142,7 @@ export function bundle(file, options = {}) {
             } else {
               id = stylesSet[url].id;
             }
-            fileCode = fileCode.replace(new RegExp(createSafeExp(`sfc:${src}`), 'gmi'), `CSS.${id}`);
+            fileCode = fileCode.replace(new RegExp(`['"]sfc:${createSafeExp(src)}['"]`, 'gmi'), `CSS.${id}`);
           }
         });
       }
@@ -175,13 +179,13 @@ export function bundle(file, options = {}) {
   let cssContent = '';
   if (cssFiles.length) {
     cssContent += 'const CSS = {};\n';
-    cssContent += ';(function() {\n';
     cssContent += `function createBlobUrl(text, type) {
       const url = window.URL || window.webkitURL;
       const blob = new Blob([text], { type });
       const blobURL = url.createObjectURL(blob);
       return blobURL;
     }\n`;
+    cssContent += ';(function() {\n';
     cssContent += cssFiles.join('\n');
     cssContent += '\n}());\n';
   }
