@@ -1,6 +1,7 @@
 import { resolveUrl, each, tryParse, createReady, camelcase, remap } from '../utils';
 import { initComponent, components, updateComponent, insertBlob, register } from './framework';
 import { Context } from './context';
+import { isShallowEqual } from 'ts-fns';
 
 const BASE_URL = window.location.href;
 
@@ -10,6 +11,7 @@ class SFC_Element extends HTMLElement {
     super();
     this.attachShadow({ mode: 'open' });
     this.rootElement = null;
+    this.latestProps = null;
 
     this.$ready = createReady();
   }
@@ -83,6 +85,7 @@ class SFC_Element extends HTMLElement {
 
   async mount(meta = {}) {
     const props = this.getProps();
+    this.latestProps = props;
 
     const options = this.getOptions();
     const mapping = remap(options.events || {});
@@ -121,11 +124,19 @@ class SFC_Element extends HTMLElement {
       }
       if (flag) {
         const props = this.getProps();
-        updateComponent(this.rootElement, { props });
+        if (!isShallowEqual(props, this.latestProps)) {
+          this.propsChangedCallback(props);
+        }
+        this.latestProps = props;
       }
     });
     observer.observe(this, { attributes: true });
     this.observer = observer;
+  }
+
+  propsChangedCallback(props) {
+    updateComponent(this.rootElement, { props });
+    this.dispatchEvent(new CustomEvent('changed', { detail: { props } }));
   }
 
   disconnectedCallback() {
@@ -140,6 +151,20 @@ class SFC_Element extends HTMLElement {
   }
 }
 
+/**
+ * 创建自己的标签
+ * @param {string} tag 标签名
+ * @param {object|null} options
+ * @param {string} options.src 不传source时必须传入，远端组件文件
+ * @param {boolean} options.pendingSlot 是否启用pending-slot
+ * @param {object|array} options.props props的mapping
+ * @param {object|array} options.events events的mapping
+ * @param {function} options.onInit 初始化时触发
+ * @param {function} [options.onMount] 挂载时触发
+ * @param {function} [options.onDestroy] 卸载时触发
+ * @param {function} [options.onChange] props变化时触发
+ * @param {TemplateElement|string} [source] 源码，或者包含源码的template标签，不传时，必须传入 options.src
+ */
 export async function privilege(tag, options, source) {
   if ((!options && !source) || (options && !options.src && !source)) {
     throw new Error('privilege必须传入options.src或code');
@@ -171,6 +196,23 @@ export async function privilege(tag, options, source) {
   };
   // eslint-disable-next-line camelcase
   class PrivilegeElement extends SFC_Element {
+    constructor() {
+      super();
+      options.onInit?.call(this);
+    }
+    mount(meta = {}) {
+      super.mount(meta);
+      options.onMount?.call(this);
+    }
+    disconnectedCallback() {
+      super.disconnectedCallback();
+      options.onDestroy?.call(this);
+    }
+    propsChangedCallback(props) {
+      super.propsChangedCallback(props);
+      options.onChange?.call(this, props);
+    }
+
     getOptions() {
       return info;
     }
