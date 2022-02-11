@@ -9,6 +9,7 @@ export function bundle(file, options = {}) {
   const contents = [];
   const importSources = {};
   const compileOptions = {};
+  const stylesSet = {};
 
   // entryUrl 入口的url地址，这是由框架决定的，需要用这个来确定组件的引用
   // absRootPath 由于有些组件直接使用绝对路径 / 开头，因此，我们需要提供 absRootPath 作为所谓 / 的读取位置，一般是项目所在目录
@@ -68,7 +69,13 @@ export function bundle(file, options = {}) {
     const asts = parseComponent(fileContent, url, compileOptions);
     const { components = {}, imports = [], refs, ...info } = asts;
 
-    // TODO refs
+    if (refs && refs.length) {
+      refs.forEach(({ code, url, type }) => {
+        if (type === 'text/css') {
+          stylesSet[url] = code;
+        }
+      });
+    }
 
     const importSet = {};
     imports.forEach(([importDeclare, importSrc]) => {

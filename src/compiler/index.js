@@ -53,13 +53,16 @@ export function genComponent({ imports = [], deps = [], jsCode, cssCode, htmlCod
   return res;
 }
 
-export async function compileComponent(text, source, options) {
-  const asts = parseComponent(text, source, options);
-  const promises = [
-    Promise.resolve().then(() => genComponent(asts, source, options)),
-  ];
+export function compileComponent(text, source, options) {
+  const ast = parseComponent(text, source, options);
+  const code = genComponent(ast, source, options);
+  return code;
+}
 
-  const { refs: refSrcs } = asts;
+export async function loadRefs(ast, source) {
+  const promises = [];
+  const { refs: refSrcs } = ast;
+
   if (refSrcs && refSrcs.length) {
     promises.push(...refSrcs.map(async ({ type, url, src }) => {
       const text = await fetch(url).then(res => res.text());
@@ -68,11 +71,14 @@ export async function compileComponent(text, source, options) {
     }));
   }
 
-  const [code, ...refs] = await Promise.all(promises);
-  return { code, refs };
+  const refs = await Promise.all(promises);
+  return refs;
 }
 
-export function loadComponent(source, options) {
-  return fetch(source).then(res => res.text())
-    .then(text => compileComponent(text, source, options));
+export async function loadComponent(source, options) {
+  const text = await fetch(source).then(res => res.text());
+  const ast = parseComponent(text, source, options);
+  const refs = await loadRefs(ast, source);
+  const code = genComponent(ast, source, options);
+  return { code, refs };
 }

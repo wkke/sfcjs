@@ -63,6 +63,17 @@ export function define(url, deps, fn) {
   return component;
 }
 
+export async function register(src, text) {
+  const absUrl = resolveUrl(BASE_URL, src);
+
+  if (components[absUrl]) {
+    throw new Error(`${absUrl}已经被注册过了`);
+  }
+
+  const output = await Context.compileComponentCode(absUrl, text);
+  await insertBlob(absUrl, output);
+}
+
 // ---------------------------------------------
 
 // 数据类型

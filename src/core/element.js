@@ -1,5 +1,5 @@
 import { resolveUrl, each, tryParse, createReady, camelcase, remap } from '../utils';
-import { initComponent, components, updateComponent, insertBlob } from './framework';
+import { initComponent, components, updateComponent, insertBlob, register } from './framework';
 import { Context } from './context';
 
 const BASE_URL = window.location.href;
@@ -138,17 +138,6 @@ class SFC_Element extends HTMLElement {
 
     this.dispatchEvent(new Event('unmounted'));
   }
-}
-
-export async function register(src, text) {
-  const absUrl = resolveUrl(BASE_URL, src);
-
-  if (components[absUrl]) {
-    throw new Error(`${absUrl}已经被注册过了`);
-  }
-
-  const output = await Context.compileComponentCode(absUrl, text);
-  await insertBlob(absUrl, output);
 }
 
 export async function privilege(tag, options, source) {
