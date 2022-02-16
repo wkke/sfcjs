@@ -142,7 +142,7 @@ export function bundle(file, options = {}) {
             } else {
               id = stylesSet[url].id;
             }
-            fileCode = fileCode.replace(new RegExp(`['"]sfc:${createSafeExp(src)}['"]`, 'gmi'), `CSS.${id}`);
+            fileCode = fileCode.replace(new RegExp(`['"]sfc:${createSafeExp(src)}['"]`, 'gmi'), `CSS["${id}"]`);
           }
         });
       }
