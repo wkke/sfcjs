@@ -200,6 +200,10 @@ export async function privilege(tag, options, source) {
       super();
       options.onInit?.call(this);
     }
+    async connectedCallback() {
+      options.onConnect?.call(this);
+      await super.connectedCallback();
+    }
     mount(meta = {}) {
       super.mount(meta);
       options.onMount?.call(this);
