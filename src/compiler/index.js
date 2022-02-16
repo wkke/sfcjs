@@ -69,12 +69,13 @@ export async function loadRefs(refs, source) {
 
 export async function compileComponent(source, text, options) {
   const ast = parseComponent(text, source, options);
-  const refs = await loadRefs(ast, source);
+  const refs = await loadRefs(ast.refs, source);
   const code = genComponent(ast, source, options);
   return { code, refs };
 }
 
 export async function loadComponent(source, options) {
   const text = await fetch(source).then(res => res.text());
-  return await compileComponent(source, text, options);
+  const chunk = await compileComponent(source, text, options);
+  return chunk;
 }
