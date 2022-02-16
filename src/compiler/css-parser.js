@@ -7,6 +7,12 @@ import { tokenize } from './js-parser';
 // https://github.com/visionmedia/css-parse/pull/49#issuecomment-30088027
 const commentre = /\/\*[^*]*\*+([^/*][^*]*\*+)*\//g;
 
+export function replaceCssUrl(text, source) {
+  const res = text.replace(/\('(.*?)'\)/gm, '("$1")')
+    .replace(/url\("?(.*?)"?\)/gm, (_, $1) => `url("${resolveUrl(source, $1)}")`);
+  return res;
+}
+
 function parseCssAst(css, options) {
   // eslint-disable-next-line no-param-reassign
   options = options || {};
@@ -820,15 +826,16 @@ export function parseCss(sourceCode, source, givenVars) {
           const params = paramsT.substring(1, paramsT.length - 1).split(',')
             .map(item => item.trim())
             .map(item => createFnInvoker(item));
-          return `['@fn', () => ${name}(${params.join(',')})]`;
+          return `['@fn',() => ${name}(${params.join(',')})]`;
         });
         properties.push({ fns });
         return;
       }
 
+      const text = replaceCssUrl(value, source);
       properties.push({
         name: `'${property}'`,
-        value: createValue(value),
+        value: createValue(text),
       });
     });
     return properties;
@@ -898,6 +905,7 @@ export function parseCss(sourceCode, source, givenVars) {
   });
   const fns = Object.values(fnsMapping);
 
+  const refs = [];
   const css = [];
   let inIf = '';
   each(sections, (section) => {
@@ -974,7 +982,7 @@ export function parseCss(sourceCode, source, givenVars) {
       const { items, item, index, rules } = section;
       const repeatInside = rules.map(createRule).join(',');
       const repeatItems = createValue(items, true);
-      const rule = `['@for', () => ${repeatItems}.map((${item},${index}) => ${rules.length > 1 ? `[${repeatInside}]` : repeatInside})]`;
+      const rule = `['@for',() => ${repeatItems}.map((${item},${index}) => ${rules.length > 1 ? `[${repeatInside}]` : repeatInside})]`;
       css.push(rule);
       return;
     }
@@ -986,40 +994,46 @@ export function parseCss(sourceCode, source, givenVars) {
     }
 
     if (type === 'import') {
-      css.push(`['@import', '${resolveUrl(source, section.import)}']`);
+      const importSrc = section.import.substring(1, section.import.length - 1);
+
+      if (importSrc.indexOf('sfc:') === 0) {
+        const src = importSrc.replace('sfc:', '');
+        const url = resolveUrl(source, src);
+        refs.push({ url, src, type: 'text/css' });
+      }
+
+      css.push(`['@import','${importSrc}']`);
       return;
     }
 
     if (type === 'media') {
-      css.push(`['@media', '${section.media}', ${section.rules.map(createRule).join(', ')}]`);
+      css.push(`['@media','${section.media}',${section.rules.map(createRule).join(',')}]`);
       return;
     }
 
     if (type === 'charset') {
-      css.push(`['@charset', '${section.charset}']`);
+      css.push(`['@charset','${section.charset}']`);
       return;
     }
 
     if (type === 'namespace') {
-      css.push(`['@namespace', '${section.namespace}']`);
+      css.push(`['@namespace','${section.namespace}']`);
       return;
     }
 
     if (type === 'supports') {
-      css.push(`['@supports', '${section.supports}', ${section.rules.map(createRule).join(', ')}]`);
+      css.push(`['@supports','${section.supports}',${section.rules.map(createRule).join(', ')}]`);
       return;
     }
 
     if (type === 'keyframes') {
-      css.push(`['@keyframes', '${section.name}', ${section.keyframes.map(createKeyframe).join(', ')}]`);
+      css.push(`['@keyframes','${section.name}',${section.keyframes.map(createKeyframe).join(', ')}]`);
       return;
     }
 
     if (type === 'font-face') {
-      const props = createDeclare(section.declarations).map(prop => prop
-        .replace(/\('(.*?)'\)/gm, '("$1")')
-        .replace(/url\("?(.*?)"?\)/gm, (_, $1) => `url("${resolveUrl(source, $1)}")`));
-      css.push(`['@font-face', {${props.join(',')}}]`);
+      const props = createDeclare(section.declarations).map(prop => replaceCssUrl(prop, source));
+      css.push(`['@font-face',{${props.join(',')}}]`);
       return;
     }
   });
@@ -1030,5 +1044,6 @@ export function parseCss(sourceCode, source, givenVars) {
   code += `return [${css.join(',')}];`;
 
   code += '}';
-  return code;
+
+  return { code, refs };
 }

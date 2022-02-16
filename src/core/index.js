@@ -1,2 +1,3 @@
-export { register, privilege } from './element';
-export { define } from './framework';
+export { define, register } from './framework';
+export { privilege } from './element';
+export { config } from './config';

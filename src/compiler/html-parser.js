@@ -209,5 +209,5 @@ export function parseHtml(sourceCode, components, givenVars, source) {
   code += build(htmlAst);
   code += ';}';
 
-  return code;
+  return { code };
 }

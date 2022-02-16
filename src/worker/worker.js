@@ -7,21 +7,21 @@ self.addEventListener('message', async (e) => {
 
   const data = JSON.parse(e.data);
   const { type } = data;
-  if (type === 'init') {
+  if (type === 'load') {
     const { src, id } = data;
-    const code = await loadComponent(src);
+    const chunk = await loadComponent(src);
     postMessage(JSON.stringify({
       type,
       id,
-      code,
+      ...chunk,
     }));
   } else if (type === 'compile') {
     const { src, text, id } = data;
-    const code = compileComponent(text, src);
+    const chunk = await compileComponent(src, text);
     postMessage(JSON.stringify({
       type,
       id,
-      code,
+      ...chunk,
     }));
   }
 });

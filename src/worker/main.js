@@ -35,25 +35,25 @@ function run(data) {
         return;
       }
 
-      const { code } = res;
+      const { code, refs } = res;
       if (!code) {
         return;
       }
 
-      resolve(code);
+      resolve({ code, refs });
       onComplete();
     };
     worker.addEventListener('message', onSuccess);
   });
 }
 
-function loadComponentCode(src) {
-  return run({ type: 'init', src });
+function loadComponent(src) {
+  return run({ type: 'load', src });
 };
 
-function compileComponentCode(src, text) {
+function compileComponent(src, text) {
   return run({ type: 'compile', src, text });
 }
 
-Context.loadComponentCode = loadComponentCode;
-Context.compileComponentCode = compileComponentCode;
+Context.loadComponent = loadComponent;
+Context.compileComponent = compileComponent;

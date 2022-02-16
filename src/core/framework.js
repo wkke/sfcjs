@@ -4,6 +4,7 @@ import {
   createScriptByBlob,
   insertScript,
   createReady,
+  createBlobUrl,
 } from '../utils';
 import {
   createProxy, isObject, isArray,
@@ -12,6 +13,7 @@ import {
   isInstanceOf, decideby, isFunction,
   createRandomString,
   uniqueArray,
+  createSafeExp,
 } from 'ts-fns';
 import produce from 'immer';
 import { Context } from './context';
@@ -19,6 +21,7 @@ import { Context } from './context';
 const BASE_URL = window.location.href;
 
 export const components = {};
+const sources = {};
 
 class Component {
   constructor({ url, deps, fn }) {
@@ -58,6 +61,17 @@ export function define(url, deps, fn) {
     });
   });
   return component;
+}
+
+export async function register(src, text) {
+  const absUrl = resolveUrl(BASE_URL, src);
+
+  if (components[absUrl]) {
+    throw new Error(`${absUrl}已经被注册过了`);
+  }
+
+  const chunk = await Context.compileComponent(absUrl, text);
+  await insertBlob(absUrl, chunk);
 }
 
 // ---------------------------------------------
@@ -823,12 +837,16 @@ class Element {
             .join('');
           text += '}';
           list.push(text);
-        } else if (isString(query)) {
+        } else if (type === '@import') {
+          list.push(`@import "${query}";`);
+        } else if (isString(query) && rules.length) {
           let text = `${type} ${query} {`;
           text += rules.map(item => (item ? build(item) : '')).filter(item => !!item)
             .join(' ');
           text += '}';
           list.push(text);
+        } else if (isString(query)) {
+          list.push(`${type} ${query};`);
         }
       } else if (!!item) {
         const text = build(item);
@@ -1139,11 +1157,26 @@ async function loadDepComponents(deps) {
   if (!components.length) {
     return;
   }
-  await Promise.all(components.map(url => Context.loadComponentCode(url).then((code) => {
-    const script = createScriptByBlob(code);
-    script.setAttribute('sfc-src', url);
-    return insertScript(script);
-  })));
+  await Promise.all(components.map(url => Context.loadComponent(url)
+    .then(chunk => insertBlob(url, chunk))));
+}
+
+export async function insertBlob(absUrl, { code, refs }) {
+  let contents = code;
+
+  if (refs && refs.length) {
+    refs.forEach(({ code, type, url, src }) => {
+      const blob = sources[url] || createBlobUrl(code, type);
+      contents = contents.replace(new RegExp(createSafeExp(`sfc:${src}`), 'gmi'), blob);
+      if (!sources[url]) {
+        sources[url] = src;
+      }
+    });
+  }
+
+  const script = createScriptByBlob(contents);
+  script.setAttribute('sfc-src', absUrl);
+  await insertScript(script);
 }
 
 function createNeure(type, meta, children, args, NeureClass = Neure) {
