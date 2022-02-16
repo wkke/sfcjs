@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.0.14 (2022-02-16)
+
+
+### Bug Fixes
+
+* 修复refs编译逻辑 ([8024660](https://github.com/tencent-cdc/sfcjs/commit/80246607542de270f2d665741ec991424f3a9230))
+
 ### 0.0.13 (2022-02-16)
 
 ### 0.0.12 (2022-01-30)
