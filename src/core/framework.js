@@ -166,9 +166,20 @@ class Element {
   $isCollecting = false
   $queueUpdating = false
   $isMounted = false
+  $watchers = []
 
   constructor(props) {
     this.props = Object.freeze(props);
+  }
+
+  watch(vars, fn) {
+    const reactors = isArray(vars) ? vars : [vars];
+    reactors.forEach((reactor) => {
+      this.$watchers.push({
+        reactor,
+        fn,
+      });
+    });
   }
 
   reactive(getter, computed) {
@@ -275,6 +286,12 @@ class Element {
       }
       return false;
     });
+
+    // 触发观察副作用
+    const watchers = this.$watchers.filter(item => inDeps(item.reactor, [reactor]));
+    if (watchers.length) {
+      watchers.forEach(({ fn }) => fn());
+    }
 
     this.queue.add(reactor);
     this.queueUpdate();
@@ -1078,6 +1095,8 @@ export async function initComponent(absUrl, meta = {}) {
   await loadDepComponents(deps);
 
   const { events = {} } = meta;
+
+  // 通过sfc:协议可以引入的接口
   const scope = {
     ...components,
     props: createProxy({}, {
@@ -1103,6 +1122,9 @@ export async function initComponent(absUrl, meta = {}) {
       return callback(data);
     },
     resolve: uri => resolveUrl(absUrl, uri),
+    computed: getter => element.reactive(getter, true),
+    update: element.queueUpdate.bind(element),
+    watch: element.watch.bind(element),
   };
   const vars = deps.map(dep => scope[dep]);
 

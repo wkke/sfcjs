@@ -165,7 +165,7 @@ export function parseJs(sourceCode) {
     const varValue = value.trim();
     const varExp = varValue[0] === '{' ? `(${varValue})` : varValue;
     return `let ${varName} = _sfc.reactive(() => ${varExp}, true);`;
-  }).replace(/var(.*?)=([\w\W]+?);$/, (_, name, value) => {
+  }).replace(/var\s+(\w+)=([\w\W]+?);$/, (_, name, value) => {
     const varName = name.trim();
     vars[varName] = 1;
     const varValue = value.trim();
