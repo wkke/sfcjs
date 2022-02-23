@@ -28,7 +28,8 @@ class SFC_Element extends HTMLElement {
     const attrs = {};
     each(attributes, ({ name, value }) => {
       if (name in mapping) {
-        props[mapping[name]] = tryParse(value, true);
+        // 如果规定了prop，那么当直接使用该属性时，表达为true，例如 <t-button ghost> 其中 ghost 为 true
+        props[mapping[name]] = value === null ? true : tryParse(value, true);
       } else if (name[0] === ':') {
         props[camelcase(name.substr(1))] = tryParse(value);
       } else if (name.indexOf('data-') === 0) {
