@@ -1,5 +1,6 @@
 /* eslint-disable brace-style */
 import { isAbsUrl } from '../utils';
+import { isUndefined } from 'ts-fns';
 
 const OPERATORS = ['++', '--', '**'];
 const SPECIARES = ['(', ')', '[', ']', '{', '}', ';', '\n', '='];
@@ -159,19 +160,40 @@ export function parseJs(sourceCode) {
   const tokens = tokenize(scripts);
 
   const vars = {};
-  const createReactive = code => code.replace(/let(.*?)=([\w\W]+?);$/, (_, name, value) => {
-    const varName = name.trim();
-    vars[varName] = 1;
-    const varValue = value.trim();
-    const varExp = varValue[0] === '{' ? `(${varValue})` : varValue;
-    return `let ${varName} = _sfc.reactive(() => ${varExp}, true);`;
-  }).replace(/var\s+(\w+)=([\w\W]+?);$/, (_, name, value) => {
-    const varName = name.trim();
-    vars[varName] = 1;
-    const varValue = value.trim();
-    const varExp = varValue[0] === '{' ? `(${varValue})` : varValue;
-    return `var ${varName} = _sfc.reactive(() => ${varExp});`;
-  });
+  const createReactive = code => code
+    .replace(/let\s+([{[])([\w\W]+)([}\]])\s+=([\w\W]+?);$/, (_, $1, names, $2, value) => {
+      const vars = names.split(',');
+      const variables = vars.map((declareStr) => {
+        const [name, defaultValue] = declareStr.split('=').map(item => item.trim());
+        vars[name] = 1;
+        if (isUndefined(defaultValue)) {
+          return name;
+        }
+        const exp = defaultValue[0] === '{' ? `(${defaultValue})` : defaultValue;
+        return `${name} = _sfc.reactive(() => ${exp}, true)`;
+      });
+
+      const varValue = value.trim();
+      const varExp = varValue[0] === '{' ? `(${varValue})` : varValue;
+
+      const out = `let ${$1}${variables.join(',')}${$2} = _sfc.reactive(() => ${varExp}, true);`;
+      return out;
+    })
+    .replace(/let\s+(\w+)\s*=\s*([\w\W]+?)\s*;$/, (_, name, value) => {
+      const varName = name.trim();
+      vars[varName] = 1;
+      const varValue = value.trim();
+      const varExp = varValue[0] === '{' ? `(${varValue})` : varValue;
+      const out = `let ${varName} = _sfc.reactive(() => ${varExp}, true);`;
+      return out;
+    })
+    .replace(/var\s+(\w+)\s*=\s*([\w\W]+?)\s*;$/, (_, name, value) => {
+      const varName = name.trim();
+      vars[varName] = 1;
+      const varValue = value.trim();
+      const varExp = varValue[0] === '{' ? `(${varValue})` : varValue;
+      return `var ${varName} = _sfc.reactive(() => ${varExp});`;
+    });
   const createUpdate = code => code.replace(/(.*?)=([\w\W]+?);$/, (_, name, value) => {
     const varName = name.trim();
     const varValue = value.trim();
