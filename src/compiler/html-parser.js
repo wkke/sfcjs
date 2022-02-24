@@ -53,6 +53,15 @@ export function parseHtml(sourceCode, components, givenVars, source) {
     const events = [];
     const directives = [];
     const args = [];
+
+    // 序列化名称，避免作为属性名时有非字符在其中
+    const serialName = (str) => {
+      if (/\W/.test(str)) {
+        return `['${str}']`;
+      }
+      return str;
+    };
+
     each(obj, (value, key) => {
       const createValue = () => {
         if (value && typeof value === 'object') {
@@ -66,10 +75,7 @@ export function parseHtml(sourceCode, components, givenVars, source) {
         return value;
       };
 
-      if (key === 'src' || key === 'href') {
-        const url = resolveUrl(source, value);
-        attrs.push([key, `'${url}'`]);
-      } else if (key.indexOf(':') === 0) {
+      if (key.indexOf(':') === 0) {
         const res = consumeVars(value);
         const realKey = key.substr(1);
         const k = camelcase(realKey);
@@ -79,7 +85,10 @@ export function parseHtml(sourceCode, components, givenVars, source) {
         events.push([k, `event => {${value}}`]);
       } else if (/^\(.*?\)$/.test(key)) {
         const k = key.substring(1, key.length - 1);
-        if (k === 'if') {
+        if (k === 'src' || k === 'href') {
+          const url = resolveUrl(source, value);
+          attrs.push([k, `'${url}'`]);
+        } else if (k === 'if') {
           directives.push(['visible', value]);
           args.push(null);
         } else if (k === 'repeat') {
@@ -119,7 +128,7 @@ export function parseHtml(sourceCode, components, givenVars, source) {
         }
       } else {
         const v = createValue();
-        attrs.push([key, v]);
+        attrs.push([serialName(key), v]);
       }
     });
 

@@ -57,7 +57,8 @@ export function bundle(file, options = {}) {
     const relativeImportFile = (src) => {
       const newPath = resolveImportFile(src);
       const relPath = path.relative(outputDir, newPath);
-      return relPath;
+      const finalPath = relPath.indexOf('.') === 0 ? relPath : `./${relPath}`;
+      return finalPath;
     };
     const fileContent = fs.readFileSync(file).toString();
 
@@ -167,7 +168,11 @@ export function bundle(file, options = {}) {
   const importLines = [];
   Object.keys(importSources).forEach((src) => {
     const declareItems = Object.values(importSources[src]);
-    importLines.push(`import { ${declareItems.join(', ')} } from '${src}';`);
+    if (declareItems.length) {
+      importLines.push(`import { ${declareItems.join(', ')} } from '${src}';`);
+    } else {
+      importLines.push(`import '${src}';`);
+    }
   });
 
   const cssFiles = Object.keys(stylesSet).map((url) => {
