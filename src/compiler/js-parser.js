@@ -165,17 +165,24 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
   const tokens = tokenize(scripts);
 
   const vars = { ...defaultVars };
-  const createComputed = code => parseJs(code.substring(9, code.length - 1), deps, vars);
+  const createFn = code => parseJs(code, deps, vars);
+  const createComputed = code => createFn(code.substring(9, code.length - 1));
   const createExp = (name, value) => {
     const varName = name.trim();
     vars[varName] = 1;
     const varValue = value.trim();
 
-    // 通过computed创建reactive
+    // 通过computed创建reactive，需要把computed里面函数的内容给转一遍
     const isComputed = useComputed && /^computed\([\w\W]+\)$/.test(varValue);
     if (isComputed) {
       const computedExp = createComputed(varValue);
       return [varName, computedExp, 1];
+    }
+
+    // 赋值了一个函数，需要把函数的内容也给转化一遍
+    if (/^function\s*\(/.test(varValue) || /^\(\)\s*=>\s*\{/.test(varValue)) {
+      const fnExp = createFn(varValue, deps, vars);
+      return [varName, fnExp, 2];
     }
 
     const varExp = varValue[0] === '{' ? `(${varValue})` : varValue;
@@ -222,15 +229,21 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
       return outs.join('\n');
     })
     .replace(/let\s+(\w+)\s*=\s*([\w\W]+?)\s*;$/, (_, name, value) => {
-      const [varName, varExp, isComputed] = createExp(name, value);
-      if (isComputed) {
+      const [varName, varExp, type] = createExp(name, value);
+      if (type === 2) {
+        return `let ${varName} = ${varExp};`;
+      }
+      if (type === 1) {
         return `let ${varName} = computed(${varExp});`;
       }
       return `let ${varName} = _sfc.reactive(() => ${varExp}, true);`;
     })
     .replace(/var\s+(\w+)\s*=\s*([\w\W]+?)\s*;$/, (_, name, value) => {
-      const [varName, varExp, isComputed] = createExp(name, value);
-      if (isComputed) {
+      const [varName, varExp, type] = createExp(name, value);
+      if (type === 2) {
+        return `let ${varName} = ${varExp};`;
+      }
+      if (type === 1) {
         // 用var去接住computed是无效的，不会有computed效果
         return `var ${varName} = _sfc.reactive(${varExp});`;
       }
