@@ -173,7 +173,7 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
     const varValue = value.trim();
 
     // 本身就是经过编译后的值
-    if (varValue.indexOf('_sfc.') === 0) {
+    if (varValue.indexOf('_sfc.') === 0 || varValue.indexOf('this.') === 0) {
       return [varName, varValue];
     }
 
