@@ -165,12 +165,17 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
   const tokens = tokenize(scripts);
 
   const vars = { ...defaultVars };
-  const createFn = code => parseJs(code, deps, vars);
+  const createFn = code => parseJs(code, deps, vars).code;
   const createComputed = code => createFn(code.substring(9, code.length - 1));
   const createExp = (name, value) => {
     const varName = name.trim();
     vars[varName] = 1;
     const varValue = value.trim();
+
+    // 本身就是经过编译后的值
+    if (varValue.indexOf('_sfc.') === 0) {
+      return [varName, varValue];
+    }
 
     // 通过computed创建reactive，需要把computed里面函数的内容给转一遍
     const isComputed = useComputed && /^computed\([\w\W]+\)$/.test(varValue);
@@ -189,66 +194,80 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
     return [varName, varExp];
   };
 
-  const createReactive = code => code
-    .replace(/let\s+([{[])([\w\W]+)([}\]])\s+=([\w\W]+?);$/, (_, $1, names, $2, value) => {
-      const vars = names.split(',');
+  const createReactive = (code) => {
+    const destructor = /^let\s+([{[])([\w\W]+)([}\]])\s+=([\w\W]+?);$/;
+    if (destructor.test(code)) {
+      return code.replace(destructor, (_, $1, names, $2, value) => {
+        const vars = names.split(',');
 
-      const varValue = value.trim();
-      const deconstructFrom = `sfc$${createRandomString(8)}`;
-      const isComputed = useComputed && /^computed\([\w\W]+\)$/.test(varValue);
-      const computedExp = isComputed ? createComputed(varValue) : null;
-      const varExp = computedExp ? `computed(${computedExp})` : varValue;
-      const outs = [`const ${deconstructFrom} = ${varExp};`];
+        const varValue = value.trim();
+        const deconstructFrom = `sfc$${createRandomString(8)}`;
+        const isComputed = useComputed && /^computed\([\w\W]+\)$/.test(varValue);
+        const computedExp = isComputed ? createComputed(varValue) : null;
+        const varExp = computedExp ? `computed(${computedExp})` : varValue;
+        const outs = [`const ${deconstructFrom} = ${varExp};`];
 
-      vars.forEach((str) => {
-        const [name, defaultValue] = str.split('=').map(item => item.trim());
+        vars.forEach((str) => {
+          const [name, defaultValue] = str.split('=').map(item => item.trim());
 
-        vars[name] = 1;
+          vars[name] = 1;
 
-        if (isUndefined(defaultValue)) {
-          const code = [
-            `let ${name} = _sfc.reactive(() => {`,
-            `const ${$1}${names}${$2} = _sfc.consume(${deconstructFrom});`,
-            `return ${name};`,
-            '}, true);',
-          ].join('');
-          outs.push(code);
-        }
-        else {
-          const code = [
-            `let ${name} = _sfc.reactive(() => {`,
-            `const ${$1}${names}${$2} = _sfc.consume(${deconstructFrom});`,
-            `if (typeof ${name} === 'undefined') {return ${defaultValue};}`,
-            `return ${name};`,
-            '}, true);',
-          ].join('');
-          outs.push(code);
-        }
+          if (isUndefined(defaultValue)) {
+            const code = [
+              `let ${name} = _sfc.reactive(() => {`,
+              `const ${$1}${names}${$2} = _sfc.consume(${deconstructFrom});`,
+              `return ${name};`,
+              '}, true);',
+            ].join('');
+            outs.push(code);
+          }
+          else {
+            const code = [
+              `let ${name} = _sfc.reactive(() => {`,
+              `const ${$1}${names}${$2} = _sfc.consume(${deconstructFrom});`,
+              `if (typeof ${name} === 'undefined') {return ${defaultValue};}`,
+              `return ${name};`,
+              '}, true);',
+            ].join('');
+            outs.push(code);
+          }
+        });
+
+        return outs.join('\n');
       });
+    }
 
-      return outs.join('\n');
-    })
-    .replace(/let\s+(\w+)\s*=\s*([\w\W]+?)\s*;$/, (_, name, value) => {
-      const [varName, varExp, type] = createExp(name, value);
-      if (type === 2) {
-        return `let ${varName} = ${varExp};`;
-      }
-      if (type === 1) {
-        return `let ${varName} = computed(${varExp});`;
-      }
-      return `let ${varName} = _sfc.reactive(() => ${varExp}, true);`;
-    })
-    .replace(/var\s+(\w+)\s*=\s*([\w\W]+?)\s*;$/, (_, name, value) => {
-      const [varName, varExp, type] = createExp(name, value);
-      if (type === 2) {
-        return `let ${varName} = ${varExp};`;
-      }
-      if (type === 1) {
-        // 用var去接住computed是无效的，不会有computed效果
-        return `var ${varName} = _sfc.reactive(${varExp});`;
-      }
-      return `var ${varName} = _sfc.reactive(() => ${varExp});`;
-    });
+    const computed = /^let\s+(\w+)\s*=\s*([\w\W]+?)\s*;$/;
+    if (computed.test(code)) {
+      return code.replace(computed, (_, name, value) => {
+        const [varName, varExp, type] = createExp(name, value);
+        if (type === 2) {
+          return `let ${varName} = ${varExp};`;
+        }
+        if (type === 1) {
+          return `let ${varName} = computed(${varExp});`;
+        }
+        return `let ${varName} = _sfc.reactive(() => ${varExp}, true);`;
+      });
+    }
+
+    const variable = /^var\s+(\w+)\s*=\s*([\w\W]+?)\s*;$/;
+    if (variable.test(code)) {
+      return code.replace(variable, (_, name, value) => {
+        const [varName, varExp, type] = createExp(name, value);
+        if (type === 2) {
+          return `let ${varName} = ${varExp};`;
+        }
+        if (type === 1) {
+          // 用var去接住computed是无效的，不会有computed效果
+          return `var ${varName} = _sfc.reactive(${varExp});`;
+        }
+        return `var ${varName} = _sfc.reactive(() => ${varExp});`;
+      });
+    }
+
+    return code;
+  };
   const createUpdate = code => code.replace(/(.*?)=([\w\W]+?);$/, (_, name, value) => {
     const varName = name.trim();
     const varValue = value.trim();
