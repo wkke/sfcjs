@@ -6,12 +6,33 @@ const OPERATORS = ['++', '--', '**'];
 const SPECIARES = ['(', ')', '[', ']', '{', '}', ';', '\n', '='];
 const MODIFIERS = ['+=', '-=', '*=', '/=', '%='];
 
+const isSign = (token, signs = [...OPERATORS, ...SPECIARES, ...MODIFIERS]) => signs.includes(token);
+
 export function tokenize(code) {
   const tokens = [];
 
   let cursor = 0;
   let token = '';
   let str = '';
+
+  const pushToken = () => {
+    if (token) {
+      const content = token.trim() || token.replace(/[\s\t\n]+/, ' ');
+      tokens.push(content);
+      token = '';
+    }
+  };
+  const pushStr = () => {
+    if (str) {
+      const content = str.trim() || str.replace(/[\s\t\n]+/, ' ');
+      tokens.push(content);
+      str = '';
+    }
+  };
+  const push = () => {
+    pushToken();
+    pushStr();
+  };
 
   const quotes = [];
 
@@ -20,25 +41,11 @@ export function tokenize(code) {
 
     const twoChars = char + code[cursor + 1];
     if ([...OPERATORS, ...MODIFIERS].includes(twoChars)) {
-      if (token) {
-        tokens.push(token);
-        token = '';
-      }
-      if (str) {
-        tokens.push(str);
-        str = '';
-      }
+      push();
       tokens.push(twoChars);
       cursor += 1;
     } else if (SPECIARES.includes(char)) {
-      if (token) {
-        tokens.push(token);
-        token = '';
-      }
-      if (str) {
-        tokens.push(str);
-        str = '';
-      }
+      push();
       tokens.push(char);
     } else if (['"', '\'', '`'].includes(char)) {
       const latest = quotes[quotes.length - 1];
@@ -51,17 +58,11 @@ export function tokenize(code) {
         }
       } else {
         quotes.push(char);
-        if (str) {
-          tokens.push(str);
-          str = '';
-        }
+        pushStr();
         token += char;
       }
     } else if (quotes.length) {
-      if (str) {
-        tokens.push(str);
-        str = '';
-      }
+      pushStr();
       token += char;
     } else if (token && char === ':') {
       token += ':';
@@ -88,33 +89,31 @@ export function tokenize(code) {
         str = ' ';
       }
     } else if (/\w/.test(char)) {
-      if (str) {
-        tokens.push(str);
-        str = '';
-      }
+      pushStr();
       token += char;
     } else {
-      if (token) {
-        tokens.push(token);
-        token = '';
-      }
+      pushToken();
       str += char;
     }
   }
 
-  if (token) {
-    tokens.push(token);
-    token = '';
-  }
-  if (str) {
-    tokens.push(str);
-    str = '';
+  push();
+
+  // 清洗
+  // 把放置在符号前后的空格清洗掉
+  for (let i = 0, len = tokens.length; i < len; i ++) {
+    const token = tokens[i];
+    if (token === ' ' && (isSign(tokens[i - 1]) || isSign(tokens[i + 1]))) {
+      tokens.splice(i, 1);
+      i -= 1;
+      len -= 1;
+    }
   }
 
   return tokens;
 }
 
-export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
+export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}, ignoreVars = {}) {
   const deps = [...defaultDeps];
   const imports = [];
   const components = [];
@@ -131,12 +130,18 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
       }
       return '';
     })
-    .replace(/import(.+?|\{[\w\W]+?\})from\s*?['"](.+?)['"][;\n$]/gmi, (_, declares, src) => {
-      imports.push([declares.trim(), src]);
+    .replace(/const (.+?|\{[\w\W]+?\})\s*?=\s*?await\s*?import\(['"]sfc:(.+?)['"]\)[;\n$]/gmi, (_, declares, src) => {
+      if (src.indexOf('.') === 0 || src.indexOf('/') === 0 || isAbsUrl(src)) {
+        components.push([declares.trim(), src]);
+      }
+      deps.push([declares.trim(), src]);
+      if (src === 'computed') {
+        useComputed = true;
+      }
       return '';
     })
-    .replace(/const (.+?|\{[\w\W]+?\})\s*?=\s*?await\s*?import\(['"]sfc:(.+?)['"]\)[;\n$]/gmi, (_, declares, src) => {
-      deps.push([declares.trim(), src]);
+    .replace(/import(.+?|\{[\w\W]+?\})from\s*?['"](.+?)['"][;\n$]/gmi, (_, declares, src) => {
+      imports.push([declares.trim(), src]);
       return '';
     });
 
@@ -165,9 +170,11 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
   const tokens = tokenize(scripts);
 
   const vars = { ...defaultVars };
-  const createFn = code => parseJs(code, deps, vars).code;
-  const createComputed = code => createFn(code.substring(9, code.length - 1));
-  const createExp = (name, value) => {
+
+  const createFn = (code, ignores) => parseJs(code, deps, vars, { ...ignoreVars, ...ignores }).code;
+  const createComputed = (code, ignores) => createFn(code.substring(9, code.length - 1), ignores);
+
+  const createExp = (name, value, ignores) => {
     const varName = name.trim();
     vars[varName] = 1;
     const varValue = value.trim();
@@ -180,13 +187,13 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
     // 通过computed创建reactive，需要把computed里面函数的内容给转一遍
     const isComputed = useComputed && /^computed\([\w\W]+\)$/.test(varValue);
     if (isComputed) {
-      const computedExp = createComputed(varValue);
+      const computedExp = createComputed(varValue, ignores);
       return [varName, computedExp, 1];
     }
 
     // 赋值了一个函数，需要把函数的内容也给转化一遍
     if (/^function\s*\(/.test(varValue) || /^\(\)\s*=>\s*\{/.test(varValue)) {
-      const fnExp = createFn(varValue, deps, vars);
+      const fnExp = createFn(varValue, ignores);
       return [varName, fnExp, 2];
     }
 
@@ -194,20 +201,30 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
     return [varName, varExp];
   };
 
-  const createReactive = (code) => {
+  const createConsume = (varName) => {
+    if (!vars[varName]) {
+      return varName;
+    }
+    if (ignoreVars[varName]) {
+      return varName;
+    }
+    return `_sfc.consume(${varName})`;
+  };
+
+  const createReactive = (code, ignores) => {
     const destructor = /^let\s+([{[])([\w\W]+)([}\]])\s+=([\w\W]+?);$/;
     if (destructor.test(code)) {
       return code.replace(destructor, (_, $1, names, $2, value) => {
-        const vars = names.split(',');
+        const variables = names.split(',');
 
         const varValue = value.trim();
         const deconstructFrom = `sfc$${createRandomString(8)}`;
         const isComputed = useComputed && /^computed\([\w\W]+\)$/.test(varValue);
-        const computedExp = isComputed ? createComputed(varValue) : null;
+        const computedExp = isComputed ? createComputed(varValue, ignores) : null;
         const varExp = computedExp ? `computed(${computedExp})` : varValue;
         const outs = [`const ${deconstructFrom} = ${varExp};`];
 
-        vars.forEach((str) => {
+        variables.forEach((str) => {
           const [name, defaultValue] = str.split('=').map(item => item.trim());
 
           vars[name] = 1;
@@ -240,7 +257,7 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
     const computed = /^let\s+(\w+)\s*=\s*([\w\W]+?)\s*;$/;
     if (computed.test(code)) {
       return code.replace(computed, (_, name, value) => {
-        const [varName, varExp, type] = createExp(name, value);
+        const [varName, varExp, type] = createExp(name, value, ignores);
         if (type === 2) {
           return `let ${varName} = ${varExp};`;
         }
@@ -254,7 +271,7 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
     const variable = /^var\s+(\w+)\s*=\s*([\w\W]+?)\s*;$/;
     if (variable.test(code)) {
       return code.replace(variable, (_, name, value) => {
-        const [varName, varExp, type] = createExp(name, value);
+        const [varName, varExp, type] = createExp(name, value, ignores);
         if (type === 2) {
           return `let ${varName} = ${varExp};`;
         }
@@ -313,7 +330,15 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
   };
   const match = (...args) => find(...args) > -1;
 
-  const walkWrap = (initNext, create, initCode, initIndex) => {
+  /**
+   * 通过遍历代码来生成新代码
+   * @param {*} initIndex 初始位置号，注意，是指在tokens中的位置号
+   * @param {*} initCode 初始代码，指将要生成的代码，在initIndex之前已经生成好的代码，initIndex之后的代码即将生成
+   * @param {*} wrap 包裹函数，对单一token进行处理的函数
+   * @param {*} create 创建函数，对整个块处理的函数
+   * @returns [code, i] -> code: 最终生成的代码，i下一个位置号
+   */
+  const walkWrap = (initIndex, initCode, wrap, create) => {
     const localScope = [];
     let i = initIndex;
     let code = initCode;
@@ -324,20 +349,23 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
     const end = [')', ']', '}'];
     let part = token;
 
+    const ignores = {};
+    const createOffset = i => n => tokens[i + n];
+
     i += 1;
     let next = tokens[i];
-    next = initNext ? initNext(next) : next;
+    next = wrap(next, createOffset(i));
     part += next;
 
     while (1) {
       if (i >= len) {
-        code += create(part);
+        code += create ? create(part, ignores) : part;
         break;
       }
 
       // 结束标记
       if (!localScope.length && next === ';') {
-        code += create(part);
+        code += create ? create(part, ignores) : part;
         break;
       }
 
@@ -356,51 +384,57 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
 
       i += 1;
       next = tokens[i];
+      next = wrap(next, createOffset(i));
+      part += next;
+
+      // 记录，后续更深的作用域里面不需要在wrap该变量
       if (vars[next]) {
-        part += `_sfc.consume(${next})`;
-      }
-      else {
-        part += next;
+        ignores[next] = 1;
       }
     }
+
     return [code, i];
+  };
+
+  // 对变量进行包裹
+  const wrap = (token, offset) => {
+    const after = offset(1);
+    const after2 = offset(2);
+    // 变量被赋值，此时，不应该被包裹
+    const signs = [...OPERATORS, ...MODIFIERS, '='];
+    if (vars[token] && !((after === ' ' && isSign(after2, signs)) || isSign(after, signs))) {
+      return createConsume(token);
+    }
+    return token;
   };
 
   let code = '';
   for (let i = 0, len = tokens.length; i < len; i ++) {
     const token = tokens[i];
-    // declare
+    // 声明变量
     if (token === 'let' || token === 'var') {
-      const [newCode, newIndex] = walkWrap(
-        (next) => {
-          if (vars[next]) {
-            return `_sfc.consume(${next})`;
-          }
-          return next;
-        },
-        createReactive,
-        code,
-        i,
-      );
+      const [newCode, newIndex] = walkWrap(i, code, wrap, createReactive);
 
       code = newCode;
       i = newIndex;
     }
-    // update
+    // 声明常量
+    else if (token === 'const') {
+      const [newCode, newIndex] = walkWrap(i, code, wrap);
+
+      code = newCode;
+      i = newIndex;
+    }
+    // 赋值操作
     else if (
       vars[token.trim()] && match(i + 1, '=', '', nextMatch => !nextMatch('='))
     ) {
-      const [newCode, newIndex] = walkWrap(
-        null,
-        createUpdate,
-        code,
-        i,
-      );
+      const [newCode, newIndex] = walkWrap(i, code, wrap, createUpdate);
 
       code = newCode;
       i = newIndex;
     }
-    // a += 1
+    // 自加自减 a += 1
     else if (
       vars[token.trim()] && match(i + 1, token => MODIFIERS.includes(token), '')
     ) {
@@ -410,12 +444,7 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
         return `${varname} = _sfc.update(${varname}, ${varname} => ${exp});`;
       };
 
-      const [newCode, newIndex] = walkWrap(
-        null,
-        create,
-        code,
-        i,
-      );
+      const [newCode, newIndex] = walkWrap(i, code, wrap, create);
 
       code = newCode;
       i = newIndex;
@@ -432,12 +461,12 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}) {
       const exp = `${varname} = _sfc.update(${varname}, ${varname} => (${varname} ${operator},${varname}))`; // 由于直接匹配，不需要在末尾加;
       code += exp;
     }
-    // consume
+    // 普通消费
     else if (vars[token] && !match(i - 1, '.')) {
-      const next = `_sfc.consume(${token})`;
+      const next = createConsume(token);
       code += next;
     }
-    // normal
+    // 没有任何特征
     else {
       code += token;
     }
