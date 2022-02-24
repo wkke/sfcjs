@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.0.23 (2022-02-24)
+
+
+### Bug Fixes
+
+* 考虑到let后面根函数的情况 ([da92f47](https://github.com/tencent-cdc/sfcjs/commit/da92f47b2e7fa570f3d0aaa620bc3aa3cb467f70))
+
 ### 0.0.22 (2022-02-23)
 
 
