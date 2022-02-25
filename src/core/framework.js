@@ -124,6 +124,8 @@ class TextNeure extends Neure {
   text = null // TextNode内部的文本
 }
 
+class SvgNeure extends Neure {}
+
 class AsyncNeure extends Neure {
   promise = null // 含有await指令
   data = ''
@@ -422,7 +424,7 @@ class Element {
     const { type, attrs, events, child, sibling, text, visible, className, style, bind } = neure;
 
     const mount = (type) => {
-      const node = document.createElement(type);
+      const node = isInstanceOf(neure, SvgNeure) ? document.createElementNS('http://www.w3.org/2000/svg', type) : document.createElement(type);
       each(attrs, (value, key) => {
         node.setAttribute(key, value);
       });
@@ -1019,7 +1021,7 @@ class Element {
       return neure;
     }
 
-    const neure = createNeure(type, meta, childrenGetter, args);
+    const neure = createNeure(type, meta, childrenGetter, args, type === 'svg' || this.$$inSvg ? SvgNeure : Neure);
     return neure;
   }
 
@@ -1034,7 +1036,14 @@ class Element {
       return;
     }
 
+    if (isInstanceOf(neure, SvgNeure)) {
+      this.$$inSvg = true;
+    }
     const subs = children(args);
+    if (this.$$inSvg) {
+      delete this.$$inSvg;
+    }
+
     subs.reduce((backer, item) => {
       // eslint-disable-next-line no-param-reassign
       item.parent = neure;
@@ -1206,7 +1215,7 @@ export async function insertBlob(absUrl, { code, refs }) {
   await insertScript(script);
 }
 
-function createNeure(type, meta, children, args, NeureClass = Neure) {
+function createNeure(type, meta, children, args, NeureClass) {
   const {
     class: classGetter,
     style: styleGetter,
