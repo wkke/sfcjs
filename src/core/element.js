@@ -248,13 +248,13 @@ export async function privilege(tag, options, source) {
     const hasPatched = globalStyle;
     if (!hasPatched) {
       globalStyle = document.createElement('style');
-      globalStyle.setAttribute('sfc-css', null);
-    }
-
-    globalStyle.textContent = globalStyle.textContent ? `${globalStyle.textContent}\n${globalCss}` : globalCss;
-
-    if (!hasPatched) {
+      globalStyle.setAttribute('sfc-css', tag);
+      globalStyle.textContent = globalCss;
       document.head.appendChild(globalStyle);
+    } else {
+      globalStyle.textContent += globalCss;
+      const prevTags = globalStyle.getAttribute('sfc-css');
+      globalStyle.setAttribute('sfc-css', `${prevTags} ${tag}`);
     }
   }
 }
