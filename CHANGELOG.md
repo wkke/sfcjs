@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.0.32 (2022-02-25)
+
+
+### Bug Fixes
+
+* 修复之前做的display:contents逻辑 ([742f80d](https://github.com/tencent-cdc/sfcjs/commit/742f80d37ec318905a34612ebedfd748fbb4b7c6))
+
 ### 0.0.31 (2022-02-25)
 
 
