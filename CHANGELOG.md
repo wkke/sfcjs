@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.0.31 (2022-02-25)
+
+
+### Bug Fixes
+
+* 在元素上加上display:contents ([ae851f4](https://github.com/tencent-cdc/sfcjs/commit/ae851f43bf12d88370f8800814a2ce778f126242))
+
 ### 0.0.30 (2022-02-25)
 
 
