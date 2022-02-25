@@ -205,8 +205,8 @@ export async function privilege(tag, options, source) {
       options.onConnect?.call(this);
       await super.connectedCallback();
     }
-    mount(meta = {}) {
-      super.mount(meta);
+    async mount(meta = {}) {
+      await super.mount(meta);
       options.onMount?.call(this);
     }
     disconnectedCallback() {
