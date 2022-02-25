@@ -182,7 +182,7 @@ export async function privilege(tag, options, source) {
 
   const code = typeof source === 'object' && source instanceof HTMLElement && source.tagName === 'TEMPLATE' ? source.innerHTML : source;
 
-  const { src, props, events, pendingSlot } = options || {};
+  const { src, props, events, pendingSlot, globalCss } = options || {};
   const url = src || `/-/${tag}`;
 
   let style = null;
@@ -239,6 +239,23 @@ export async function privilege(tag, options, source) {
 
   if (style) {
     document.head.removeChild(style);
+  }
+
+  // 通过 globalCss 来注册全局样式
+  // 该注册时一次性的，而且无法移除
+  if (globalCss) {
+    let globalStyle = document.querySelector('style[sfc-css]');
+    const hasPatched = globalStyle;
+    if (!hasPatched) {
+      globalStyle = document.createElement('style');
+      globalStyle.setAttribute('sfc-css', null);
+    }
+
+    globalStyle.textContent = globalStyle.textContent ? `${globalStyle.textContent}\n${globalCss}` : globalCss;
+
+    if (!hasPatched) {
+      document.head.appendChild(globalStyle);
+    }
   }
 }
 
