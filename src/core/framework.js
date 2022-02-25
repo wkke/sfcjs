@@ -404,6 +404,11 @@ class Element {
 
   // should must run after setup
   async mount(el) {
+    const style = document.createElement('style');
+    // 忽略顶层的元素
+    style.textContent = ':host, fragment { display: contents }';
+    el.appendChild(style);
+
     if (this.styles) {
       await this.mountStyles(this.styles, el);
     }
@@ -824,10 +829,7 @@ class Element {
   }
 
   mountStyles(styles, root) {
-    const list = [
-      // 忽略顶层的元素
-      ':host, fragment { display: contents }',
-    ];
+    const list = [];
     const brushes = [];
     const create = (attrs) => {
       let text = '';
