@@ -9,7 +9,10 @@ const BASE_URL = window.location.href;
 class SFC_Element extends HTMLElement {
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
+
+    const options = this.getOptions();
+
+    this.rootAt = options.custom ? this : this.attachShadow({ mode: 'open' });
     this.rootElement = null;
     this.latestProps = null;
 
@@ -56,7 +59,7 @@ class SFC_Element extends HTMLElement {
     // 只有当调用mount之后，才会消失，如果开发者自己手动调用过程中想提前清空，也可以调用clear
     const pending = 'pendingSlot' in options ? options.pendingSlot : this.getAttribute('pending-slot');
     const isPending = +pending;
-    this.shadowRoot.innerHTML = isPending ? '<slot></slot>' : '';
+    this.rootAt.innerHTML = isPending ? '<slot></slot>' : '';
 
     const absUrl = resolveUrl(BASE_URL, src);
     this.absUrl = absUrl;
@@ -81,7 +84,7 @@ class SFC_Element extends HTMLElement {
   }
 
   clear() {
-    this.shadowRoot.innerHTML = ''; // 清空内容
+    this.rootAt.innerHTML = ''; // 清空内容
   }
 
   async prepare() {}
@@ -115,7 +118,7 @@ class SFC_Element extends HTMLElement {
     // 给开发者一个处理的机会
     await this.prepare(element);
 
-    await element.mount(this.shadowRoot);
+    await element.mount(this.rootAt);
 
     this.dispatchEvent(new Event('mounted'));
   }

@@ -536,7 +536,7 @@ class Element {
     const element = await initComponent(type, { props, events });
     // eslint-disable-next-line no-param-reassign
     componentNeure.element = element;
-    element.root = node.shadowRoot;
+    element.root = node.rootAt;
 
     await element.setup(child);
 
@@ -549,7 +549,7 @@ class Element {
       await this.mountNeure(child, node);
     }
 
-    await element.mount(node.shadowRoot);
+    await element.mount(node.rootAt);
 
     componentNeure.$ready(true);
   }
