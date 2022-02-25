@@ -84,6 +84,8 @@ class SFC_Element extends HTMLElement {
     this.shadowRoot.innerHTML = ''; // 清空内容
   }
 
+  async prepare() {}
+
   async mount(meta = {}) {
     const props = this.getProps();
     this.latestProps = props;
@@ -109,6 +111,10 @@ class SFC_Element extends HTMLElement {
     this.rootElement = element;
     await element.setup();
     this.clear();
+
+    // 给开发者一个处理的机会
+    await this.prepare(element);
+
     await element.mount(this.shadowRoot);
 
     this.dispatchEvent(new Event('mounted'));
@@ -208,6 +214,10 @@ export async function privilege(tag, options, source) {
     async mount(meta = {}) {
       await super.mount(meta);
       options.onMount?.call(this);
+    }
+    async prepare(element) {
+      await super.prepare(element);
+      options.onPrepare(element);
     }
     disconnectedCallback() {
       super.disconnectedCallback();
