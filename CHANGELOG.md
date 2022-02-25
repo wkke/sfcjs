@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.0.35 (2022-02-25)
+
+
+### Bug Fixes
+
+* 优化sfc-css ([05f4eca](https://github.com/tencent-cdc/sfcjs/commit/05f4eca97b7e1e14de1f08be4f7155fb5da8811b))
+
 ### 0.0.34 (2022-02-25)
 
 ### 0.0.33 (2022-02-25)
