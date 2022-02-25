@@ -217,7 +217,7 @@ export async function privilege(tag, options, source) {
     }
     async prepare(element) {
       await super.prepare(element);
-      options.onPrepare(element);
+      options.onPrepare?.call(this, element);
     }
     disconnectedCallback() {
       super.disconnectedCallback();
