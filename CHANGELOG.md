@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.0.30 (2022-02-25)
+
+
+### Features
+
+* 支持options.custom ([80b4129](https://github.com/tencent-cdc/sfcjs/commit/80b4129134dcf31fd44bea6eff9dde2f46996f6a))
+
 ### 0.0.29 (2022-02-25)
 
 ### 0.0.28 (2022-02-25)
