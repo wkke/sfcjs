@@ -119,27 +119,23 @@ export function parseJs(sourceCode, defaultDeps = [], defaultVars = {}, ignoreVa
   const components = [];
   let useComputed = false;
 
+  const useProtol = (_, declares, src) => {
+    const decl = declares.trim();
+    if (src.indexOf('.') === 0 || src.indexOf('/') === 0 || isAbsUrl(src)) {
+      components.push([decl, src]);
+      deps.push([decl, src, true]);
+    } else {
+      deps.push([decl, src]);
+    }
+    if (src === 'computed') {
+      useComputed = true;
+    }
+    return '';
+  };
+
   const lines = sourceCode
-    .replace(/import(.+?|\{[\w\W]+?\})from\s*?['"]sfc:(.+?)['"][;\n$]/gmi, (_, declares, src) => {
-      if (src.indexOf('.') === 0 || src.indexOf('/') === 0 || isAbsUrl(src)) {
-        components.push([declares.trim(), src]);
-      }
-      deps.push([declares.trim(), src]);
-      if (src === 'computed') {
-        useComputed = true;
-      }
-      return '';
-    })
-    .replace(/const (.+?|\{[\w\W]+?\})\s*?=\s*?await\s*?import\(['"]sfc:(.+?)['"]\)[;\n$]/gmi, (_, declares, src) => {
-      if (src.indexOf('.') === 0 || src.indexOf('/') === 0 || isAbsUrl(src)) {
-        components.push([declares.trim(), src]);
-      }
-      deps.push([declares.trim(), src]);
-      if (src === 'computed') {
-        useComputed = true;
-      }
-      return '';
-    })
+    .replace(/import(.+?|\{[\w\W]+?\})from\s*?['"]sfc:(.+?)['"][;\n$]/gmi, useProtol)
+    .replace(/const (.+?|\{[\w\W]+?\})\s*?=\s*?await\s*?import\(['"]sfc:(.+?)['"]\)[;\n$]/gmi, useProtol)
     .replace(/import(.+?|\{[\w\W]+?\})from\s*?['"](.+?)['"][;\n$]/gmi, (_, declares, src) => {
       imports.push([declares.trim(), src]);
       return '';

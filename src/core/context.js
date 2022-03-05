@@ -8,4 +8,7 @@ export const Context = {
   compileComponent() {
     throw new Error('compileComponent should must be overrided');
   },
+  useComponent(src, text) {
+    return text ? Context.compileComponent(src, text) : Context.loadComponent(src);
+  },
 };

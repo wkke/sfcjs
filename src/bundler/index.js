@@ -15,6 +15,7 @@ export function bundle(file, options = {}) {
   // entryUrl 入口的url地址，这是由框架决定的，需要用这个来确定组件的引用
   // absRootPath 由于有些组件直接使用绝对路径 / 开头，因此，我们需要提供 absRootPath 作为所谓 / 的读取位置，一般是项目所在目录
   const {
+    baseUrlExp = '',
     entryUrl = `/${path.basename(file)}`,
     absRootPath = path.dirname(file),
     outputDir = absRootPath,
@@ -22,6 +23,7 @@ export function bundle(file, options = {}) {
     ignores = [],
     alias = {},
     exportUrl = false,
+    macro = false,
   } = options;
 
   const pushDeclare = (declares, str, hash, importDirectly = false) => {
@@ -72,8 +74,8 @@ export function bundle(file, options = {}) {
       return false;
     });
 
-    const asts = parseComponent(fileContent, url, compileOptions);
-    const { components = {}, imports = [], refs, ...info } = asts;
+    const context = parseComponent(fileContent, url, compileOptions);
+    const { components = {}, imports = [], refs, metas, ...info } = context;
 
     const importSet = {};
     imports.forEach(([importDeclare, importSrc]) => {
@@ -148,6 +150,18 @@ export function bundle(file, options = {}) {
         });
       }
 
+      // 处理宏
+      if (macro && metas && metas.length) {
+        metas.forEach((meta) => {
+          if (meta?.['@context'] === 'sfc:privilege') {
+            const tag = meta['@type'];
+            const { props, events } = meta;
+            const html = `\nSFCJS.privilege('${tag}',${JSON.stringify({ props, events, src: url })});`;
+            fileCode += `\n${html}`;
+          }
+        });
+      }
+
       const newFileContent = `/* ${url} */\n;(function(${scopeVars.join(',')}) {\n${fileCode}\n} (${newVars.join(',')}));`;
       contents.push(newFileContent);
     } else {
@@ -211,6 +225,7 @@ export function bundle(file, options = {}) {
     ${importLib ? `import * as SFCJS from '${importLib === true ? name : importLib}';` : ''}
     ${importLines.join('\n')}
     ${cssContent}
+    ${baseUrlExp ? `SFCJS.config('baseUrl', ${baseUrlExp});` : ''}
     ${contents.join('\n')}
     ${exportUrl ? `\nexport default '${entryUrl}';\n` : ''}
   `;

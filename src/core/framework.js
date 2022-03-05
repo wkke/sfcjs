@@ -17,8 +17,7 @@ import {
 } from 'ts-fns';
 import produce from 'immer';
 import { Context } from './context';
-
-const BASE_URL = window.location.href;
+import { config } from './config';
 
 export const components = {};
 const sources = {};
@@ -32,7 +31,8 @@ class Component {
 }
 
 export function define(url, deps, fn) {
-  const absUrl = resolveUrl(BASE_URL, url);
+  const baseUrl = config('baseUrl');
+  const absUrl = resolveUrl(baseUrl, url);
 
   if (components[absUrl]) {
     throw new Error(`${absUrl}已经被注册过了`);
@@ -61,17 +61,6 @@ export function define(url, deps, fn) {
     });
   });
   return component;
-}
-
-export async function register(src, text) {
-  const absUrl = resolveUrl(BASE_URL, src);
-
-  if (components[absUrl]) {
-    throw new Error(`${absUrl}已经被注册过了`);
-  }
-
-  const chunk = await Context.compileComponent(absUrl, text);
-  await insertBlob(absUrl, chunk);
 }
 
 // ---------------------------------------------
@@ -1193,7 +1182,7 @@ async function loadDepComponents(deps) {
   if (!components.length) {
     return;
   }
-  await Promise.all(components.map(url => Context.loadComponent(url)
+  await Promise.all(components.map(url => Context.useComponent(url)
     .then(chunk => insertBlob(url, chunk))));
 }
 

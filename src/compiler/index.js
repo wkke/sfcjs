@@ -4,28 +4,37 @@ import { parseHtml } from './html-parser';
 import { resolveUrl } from '../utils';
 
 export function parseComponent(text, source, options = {}) {
-  let jsSource = {};
+  let jsSource = '';
   let cssText = '';
+  const metas = [];
 
   const html = text
-    .replace(/<script.*?>([\w\W]*?)<\/script>\n?/gmi, (_, sourceCode) => {
-      const jsSourceCode = options.prettyJs ? options.prettyJs(sourceCode) : sourceCode;
-      jsSource = parseJs(jsSourceCode);
+    .replace(/<script(.*?)>([\w\W]*?)<\/script>\n?/gmi, (_, attrs, sourceCode) => {
+      // 获取meta信息
+      if (/ type=['"]application\/(ld\+)?json['"]/.test(attrs)) {
+        metas.push(JSON.parse(sourceCode));
+        return '';
+      }
+
+      jsSource += sourceCode;
       return '';
     })
     .replace(/<style>([\w\W]*?)<\/style>\n?/gmi, (_, sourceCode) => {
-      cssText = options.prettyCss ? options.prettyCss(sourceCode) : sourceCode;
+      cssText = +sourceCode;
       return '';
     })
     .trim();
 
-  const { imports, deps, code: jsCode, components, vars } = jsSource;
+  const jsContext = jsSource ? parseJs(options.prettyJs ? options.prettyJs(jsSource) : jsSource) : {};
+  const { imports, deps, code: jsCode, components, vars } = jsContext;
 
-  const { code: cssCode, refs } = cssText ? parseCss(cssText, source, vars) : {};
+  const cssContext = cssText ? parseCss(options.prettyCss ? options.prettyCss(cssText) : cssText, source, vars) : {};
+  const { code: cssCode, refs } = cssContext;
   const htmlSource = options.prettyHtml ? options.prettyHtml(html) : html;
   const { code: htmlCode } = htmlSource ? parseHtml(htmlSource, components, vars, source) : {};
 
   return {
+    metas,
     imports,
     deps,
     components,
@@ -40,7 +49,7 @@ export function genComponent({ imports = [], deps = [], jsCode, cssCode, htmlCod
   const output = [
     ...imports.map(([vars, src]) => `import ${vars} from "${resolveUrl(source, src)}";`),
     '\n',
-    `SFCJS.define("${source}", [${deps.map(([, src]) => `"${src}"`).join(', ')}], async function(${deps.map(([name]) => `${name}`).join(', ')}) {`,
+    `SFCJS.define("${source}", [${deps.map(([, src, isComponent]) => `"${isComponent ? resolveUrl(source, src) : src}"`).join(', ')}], async function(${deps.map(([name]) => `${name}`).join(', ')}) {`,
     'const _sfc = this',
     jsCode,
     'return {',
@@ -68,10 +77,11 @@ export async function loadRefs(refs, source) {
 }
 
 export async function compileComponent(source, text, options) {
-  const ast = parseComponent(text, source, options);
-  const refs = await loadRefs(ast.refs, source);
-  const code = genComponent(ast, source, options);
-  return { code, refs };
+  const context = parseComponent(text, source, options);
+  const refs = await loadRefs(context.refs, source);
+  const code = genComponent(context, source, options);
+  const { metas } = context;
+  return { code, refs, metas };
 }
 
 export async function loadComponent(source, options) {

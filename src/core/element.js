@@ -1,9 +1,8 @@
 import { resolveUrl, each, tryParse, createReady, camelcase, remap } from '../utils';
-import { initComponent, components, updateComponent, insertBlob, register } from './framework';
+import { initComponent, components, updateComponent, insertBlob } from './framework';
 import { Context } from './context';
 import { isShallowEqual } from 'ts-fns';
-
-const BASE_URL = window.location.href;
+import { config } from './config';
 
 // eslint-disable-next-line camelcase
 class SFC_Element extends HTMLElement {
@@ -61,7 +60,8 @@ class SFC_Element extends HTMLElement {
     const isPending = +pending;
     this.rootAt.innerHTML = isPending ? '<slot></slot>' : '';
 
-    const absUrl = resolveUrl(BASE_URL, src);
+    const baseUrl = config('baseUrl');
+    const absUrl = resolveUrl(baseUrl, src);
     this.absUrl = absUrl;
 
     if (!document.querySelector(`[sfc-src="${src}"]`) && !components[absUrl]) {
@@ -78,7 +78,7 @@ class SFC_Element extends HTMLElement {
   }
 
   async setup() {
-    const chunk = await Context.loadComponent(this.absUrl);
+    const chunk = await Context.useComponent(this.absUrl);
     await insertBlob(this.absUrl, chunk);
     this.dispatchEvent(new Event('loaded'));
   }
@@ -161,6 +161,34 @@ class SFC_Element extends HTMLElement {
   }
 }
 
+
+export async function register(src, text) {
+  const baseUrl = config('baseUrl');
+  const absUrl = resolveUrl(baseUrl, src);
+
+  if (components[absUrl]) {
+    throw new Error(`${absUrl}已经被注册过了`);
+  }
+
+  const chunk = await Context.useComponent(absUrl, text);
+  await insertBlob(absUrl, chunk);
+
+  const { metas } = chunk;
+  if (metas && metas.length) {
+    metas.forEach((meta) => {
+      if (meta?.['@context'] === 'sfc:privilege') {
+        const tag = meta['@type'];
+        const { props, events } = meta;
+        privilege(tag, {
+          src: absUrl,
+          props,
+          events,
+        });
+      }
+    });
+  }
+}
+
 /**
  * 创建自己的标签
  * @param {string} tag 标签名
@@ -197,7 +225,8 @@ export async function privilege(tag, options, source) {
     await register(url, code);
   }
 
-  const absUrl = resolveUrl(BASE_URL, url);
+  const baseUrl = config('baseUrl');
+  const absUrl = resolveUrl(baseUrl, url);
   const info = {
     src: absUrl,
     props,
@@ -260,32 +289,64 @@ export async function privilege(tag, options, source) {
 }
 
 ;(function () {
+  let deferers = [];
+
+  // 避免一开始就出现内部元素
   let style = document.createElement('style');
   style.textContent = 't-sfc:not([pending-slot=1]) { display: none }';
   document.head.appendChild(style);
 
-  const run = () => {
-    const define = () => {
-      customElements.define('t-sfc', SFC_Element);
-      document.head.removeChild(style);
-      style = null;
-    };
-    const deferers = [];
-    const templates = document.querySelectorAll('template[sfc-src]');
-    if (templates.length) {
-      templates.forEach((el) => {
-        const src = el.getAttribute('sfc-src');
-        const text = el.innerHTML;
-        deferers.push(Promise.resolve().then(() => register(src, text)));
-      });
-    }
-    if (deferers.length) {
-      Promise.all(deferers).then(define)
-        .catch(define);
+  // 完成注册，销毁临时变量
+  const finish = () => {
+    customElements.define('t-sfc', SFC_Element);
+    document.head.removeChild(style);
+    style = null;
+    deferers = null;
+  };
+
+  const append = (el, defer) => {
+    // 如果给了 delay 属性，就异步加载，避免阻塞渲染。
+    const delay = el.getAttribute('delay');
+    if (delay === '' || delay === 'true' || delay === '1') {
+      defer();
     } else {
-      define();
+      deferers.push(Promise.resolve().then(defer));
     }
   };
+
+  const run = () => {
+    const baseUrl = config('baseUrl');
+
+    // 执行rel=sfc的载入
+    const rels = document.querySelectorAll('link[rel=sfc]');
+    rels.forEach((rel) => {
+      append(rel, async () => {
+        const { href } = rel;
+        const absUrl = resolveUrl(baseUrl, href);
+        await register(absUrl);
+      });
+    });
+
+    // 注册template[sfc-src]
+    const templates = document.querySelectorAll('template[sfc-src]');
+    templates.forEach((el) => {
+      append(el, async () => {
+        const src = el.getAttribute('sfc-src');
+        const absUrl = resolveUrl(baseUrl, src);
+        const text = el.innerHTML;
+        await register(absUrl, text);
+      });
+    });
+
+    // 注册t-sfc元素
+    // 使用Promise做到真正的提前加载
+    if (deferers.length) {
+      Promise.all(deferers).then(finish, finish);
+    } else {
+      finish();
+    }
+  };
+
   // 文档加载完之后再执行，这样有利于开发者自己在自己的js中动态插入一些内容
   if (document.querySelectorAll('script').length) {
     window.addEventListener('load', run);

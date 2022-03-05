@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 
+<link rel="sfc" href="./macro.htm" delay />
+
 <style>
   span {
     color: rgb(0, 64, 202);
   }
 </style>
 
-<script src="../dist/index.js"></script>
+<script src="../index.js"></script>
 
 <template id="t-button">
   <script>
@@ -28,6 +30,24 @@
   </style>
   <button type="{{props.type}}" class="{{props.theme}}">动作：<slot></slot></button>
 </template>
+
+<t-sfc src="./app.htm" data-dog="{ name: 'tydi' }" pending-slot="1">
+  <span>Loading...</span>
+</t-sfc>
+
+<t-button type="button" theme="success">按钮</t-button>
+
+<macro-tag></macro-tag>
+
+<script>
+  document.querySelector('t-sfc').addEventListener('grow', e => console.log(e.detail));
+  document.querySelector('t-button').addEventListener('mounted', function() {
+    setTimeout(() => {
+      this.setAttribute('theme', 'error');
+    }, 3000);
+  });
+</script>
+
 <script>
   // 通过privilege实现高级的组件注册
   SFCJS.privilege(
@@ -40,19 +60,4 @@
     },
     document.querySelector('#t-button'),
   );
-</script>
-
-<t-sfc src="./app.htm" data-dog="{ name: 'tydi' }" pending-slot="1">
-  <span>Loading...</span>
-</t-sfc>
-
-<t-button type="button" theme="success">按钮</t-button>
-
-<script>
-  document.querySelector('t-sfc').addEventListener('grow', e => console.log(e.detail));
-  document.querySelector('t-button').addEventListener('mounted', function() {
-    setTimeout(() => {
-      this.setAttribute('theme', 'error');
-    }, 3000);
-  });
 </script>

@@ -1,4 +1,6 @@
-const settings = {};
+const settings = {
+  baseUrl: window.location.href,
+};
 
 export function config(options) {
   if (typeof options === 'string') {

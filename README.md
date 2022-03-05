@@ -272,6 +272,21 @@ SFCJS 支持在应用（而非组件）当前 html 中用 template 提前定义�
 
 在上面代码中，通过含有 `sfc-src` 的 `template` 提前定义了一个组件，然后在下面用 `t-sfc` 使用该组件，这样可以不用通过异步请求来拉取组件代码。
 
+**Auto Link**
+
+SFCJS 支持在当前 html 中使用 `link[rel=sfc]` 自动载入组件。例如：
+
+```html
+<head>
+  <script src="https://unpkg.com/sfcjs"></script>
+  <link rel="sfc" href="./some.htm" />
+</head>
+```
+
+在上面代码中，link 引入了一个组件，这个组件会被提前载入，在载入完成之后，该组件就被加入到组件队列中等待被使用。
+
+*注意：Auto template 和 auto link 区别在于一个需要网络请求，一个不需要，它们内容都是一样的，都是提前载入的。Auto link 如果载入过程消耗比较多时间，会导致界面不能及时展现组件内容，此时，如果你确定这个 link 不需要提前载入，你可以在 link 上加上 `delay` 属性来让这个 link 延时加载，从而避免阻塞渲染。*
+
 **全局变量**
 
 ```html
@@ -435,6 +450,7 @@ const code = bundle(file, options)
 - importLib: 默认为 false，表示是否要在编译结果中引入 sfcjs，如果为 false，你需要手动用 script 标签引入 sfcjs 的库文件，如果为 true 表示你需要使用 webpack 等工具打包，如果为 `https://unpkg.com/sfcjs` 则表示从 CDN 引用
 - ignores: (file|RegExp)[] 匹配到的文件路径对应的文件将不被编译进 bundle 文件中
 - alias: { [key: string]: string } 在 AOT 时，引入组件的路径可能不好处理，此时，你可以通过 alias 把路径映射到一个可以准确读取本地文件的相对路径上
+- macro: true|false, 是否启用宏
 
 基于 `bundle` 函数，我们可以封装自己的 webpack loader，例如：
 
@@ -464,6 +480,26 @@ module.exports = function(content) {
 
 也就是说，编译工具把我们原有的 .htm 文件编译为 js 代码，在你的工程项目中可以和其他的代码打包到一起。但是最终要使用对应的组件时，需要使用 `t-sfc` 来进行组件的使用。
 
+## 宏
+
+你可为 sfc 提供更多描述信息，这些信息可让编译器按照对应的方式进行编译，从而可以让你的组件更加灵活。例如，你可以在 .htm 开头加入：
+
+```html
+<script type="application/ld+json">
+{
+  "@context": "sfc:privilege",
+  "@type": "t-icon",
+  "props": [
+    "name"
+  ]
+}
+</script>
+```
+
+上面的描述信息，告诉编译器当前组件将利用 privilege 创建 t-icon 标签。
+
+目前仅支持 privilege 宏，它会让编译器识别，并在加载完组件之后，让组件自动拥有特权化能力，帮助开发者以最快的速度创建自己的 custom element。你可以有两种方式使该宏生效，在 JIT 模式下，你可以通过 `<link rel="sfc" href="icon.htm" />` 来使该组件生效；在 AOT 模式下，你需要开启 macro 开关使生效。
+
 ## 使用场景
 
 ### 场景一：在不同技术栈中使用相同的界面效果
@@ -489,6 +525,12 @@ module.exports = function(content) {
 - 使用 CDN 部署组件时，要保证文件路径的正确，需要在测试阶段不断尝试可能的错误
 - 库文件在头部加载，register, privilege 操作在头部完成，head 中可以包含 template 元素
 - 框架使用了 Proxy, MutationObserver, fetch 这些需要较新版本的浏览器才能支持的接口
+
+
+## vscode 插件
+
+- [JSON Script Tag](https://marketplace.visualstudio.com/items?itemName=sissel.json-script-tag) 支持 `<script type="application/json">` 内 JSON 高亮
+- [Vue Language Features (Volar)](https://marketplace.visualstudio.com/items?itemName=johnsoncodehk.volar) 支持 html 插值、函数高亮
 
 ## 开源协议
 
