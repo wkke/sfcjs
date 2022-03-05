@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.0.36 (2022-03-05)
+
+
+### Features
+
+* 实现宏的能力，便捷创建 custom element ([1a6597e](https://github.com/tencent-cdc/sfcjs/commit/1a6597ea9a22afe7331a1362c264a35343391733))
+
 ### 0.0.35 (2022-02-25)
 
 
