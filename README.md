@@ -358,6 +358,7 @@ SFCJS.privilege(
   - src: 组件文件的 url
   - props: props 对应的 mapping 关系，例如上面代码中，意思是 `type` 这个 prop 将从 `type` 这个属性上读取（正常情况下是从 data-type 上读取）
   - events: 事件名对应 mapping 关系，例如组件内抛出的事件为 some, 而你希望在外部使用 any 作为事件名接收，你可以传入 { any: 'some' }
+  - onInit, onConnect, onMount, onDestroy, onChange 对应阶段的钩子函数，onChange 指 props 变化时
 - source: 组件代码字符串，或者一个包含了组件源代码的 template 元素
 
 其中 `src` 和 `source` 必须传一个：
@@ -401,7 +402,7 @@ SFCJS.privilege(
 <div id="{{props.id}}">{{props.content}}</div>
 ```
 
-*此处注意，不可以将属性从 `props` 上结构出来后使用，而必须通过 `.` 操作符从 `props` 上读取属性。*
+*此处注意，不可以将属性从 `props` 上解构出来后使用，而必须通过 `.` 操作符从 `props` 上读取属性。*
 
 当前这个组件在被其他组件使用时，如下传递：
 
@@ -409,13 +410,13 @@ SFCJS.privilege(
 <some-component :id="100" :content="'some string'" class="some"></some-component>
 ```
 
-props 传递的是真实值，例如上面的 `100` 是数字 100 而非字符串 '100'，如果需要使用变量，不应该放在 `{{}}` 内部，具体可以阅读上面的语法部分。
+props 传递的是真实值，例如上面的 `100` 是数字 100 而非字符串 '100'，具体可以阅读上面的语法部分。
 
 *组件只接收 props，无法读取组件的 attrs，例如上面的 `class` 这个属性，在组件内部读取不到，这个属性将被作为 `<some-component>` 这个 html 标签的属性生效。*
 
 **事件**
 
-和 vue2 中的事件回调非常像，你可以在组件被使用时通过 `@` 开头的属性来绑定事件，在组件内部通过 `sfc:emit` 来抛出事件。
+和 vue 中的事件回调非常像，你可以在组件被使用时通过 `@` 开头的属性来绑定事件，在组件内部通过 `sfc:emit` 来抛出事件。
 
 ```js
 import emit from 'sfc:emit';
@@ -431,7 +432,7 @@ function handleClick() {
 <some-component @triggered="handleTrigger(event)"></some-component>
 ```
 
-和 vue2 很像，你必须使用 event 这个关键字来接住组件内部 emit 的第二个参数，例如上面代码中 `handleTrigger(event)` 中的 `event` 的值其实是 `111`。但和 vue2 不同的是，你不可以只传一个 `handleTrigger` 就结束了，你必须在 @triggered 中传递完整的函数表达形式。
+和 vue 很像，你必须使用 `event` 这个关键字来接住组件内部 emit 的第二个参数，例如上面代码中 `handleTrigger(event)` 中的 `event` 的值其实是 `111`。但和 vue 不同的是，你不可以只传一个 `handleTrigger` 就结束了，你必须在 @triggered 中传递完整的函数表达形式。
 
 ## AOT
 
@@ -516,7 +517,7 @@ module.exports = function(content) {
 
 ### 场景四：UI 组件库
 
-我们开发了一套组件库，后来发现我们要为公司内不同团队提供 vue 和 react 的两套版本，这让我们维护起来非常不方便，我们采用了 sfcjs 作为视图引擎，利用 sfcjs 的 AOT 能力，通过 privilege 把所有组件做成 web components 实现了组件的跨框架使用，解决了我们维护多套版本的烦恼。于此同时，我们还发现 sfcjs 所写的组件，更像是一个 UI 组件的描述，我们把单一组件原子化，在一个文件中描述这一个组件的设计逻辑，这使得我们把设计理念更加有效的推行起来。
+我们开发了一套组件库，后来发现我们要为公司内不同团队提供 vue 和 react 的两套版本，这让我们维护起来非常不方便，我们采用了 sfcjs 作为视图引擎，利用 sfcjs 的 AOT 能力，通过 privilege 把所有组件做成 web components 实现了组件的跨框架使用，解决了我们维护多套版本的烦恼。于此同时，我们还发现 sfcjs 所写的组件，更像是一个 UI 组件的描述，我们把单一组件原子化，在一个文件中描述这一个组件的设计逻辑，这使得我们把设计理念更加有效的推行起来。案例：[tdesign-sfc](https://www.npmjs.com/package/tdesign-sfc)
 
 ## 使用建议
 
