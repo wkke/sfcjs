@@ -150,9 +150,6 @@ class SFC_Element extends HTMLElement {
   }
 
   disconnectedCallback() {
-    if (this.rootElement) {
-      this.rootElement.unmount();
-    }
     if (this.observer) {
       this.observer.disconnect();
     }
