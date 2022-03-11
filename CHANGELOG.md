@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.0.38 (2022-03-11)
+
+
+### Bug Fixes
+
+* remove no use code ([b2934ba](https://github.com/tencent-cdc/sfcjs/commit/b2934ba8feb9c8abd7242052d0e0501755138027))
+
 ### 0.0.37 (2022-03-06)
 
 ### 0.0.36 (2022-03-05)
